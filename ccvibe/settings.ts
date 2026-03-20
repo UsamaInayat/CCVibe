@@ -1,5 +1,5 @@
 /*
- * CCVibe - Auto-translate Roman Hindi/Urdu to English
+ * CCVibe - Auto-translate Roman Hindi/Urdu and Indonesian to English
  * A Vencord plugin for Discord
  */
 
@@ -9,7 +9,17 @@ import { OptionType } from "@utils/types";
 export const settings = definePluginSettings({
     enabled: {
         type: OptionType.BOOLEAN,
-        description: "Enable automatic translation of Hindi/Urdu messages",
+        description: "Enable automatic translation",
+        default: true
+    },
+    detectHindiUrdu: {
+        type: OptionType.BOOLEAN,
+        description: "Detect and translate Roman Hindi/Urdu messages",
+        default: true
+    },
+    detectIndonesian: {
+        type: OptionType.BOOLEAN,
+        description: "Detect and translate Indonesian (Bahasa Indonesia) messages",
         default: true
     },
     showOriginalOnHover: {

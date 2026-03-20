@@ -2,7 +2,9 @@
      CCVibe - Installation Guide
 ========================================
 
-Auto-translates Roman Hindi/Urdu to English in Discord.
+Auto-translates Roman Hindi/Urdu AND Indonesian (Bahasa Indonesia)
+messages to English in Discord — inline, with hover to see original.
+
 Smart routing picks the best translator for each sentence!
 
 
@@ -16,11 +18,11 @@ STEP 1: Install Prerequisites (One-time, ~5 min)
 ------------------------------------------------
 
 A) Install Node.js
-   → https://nodejs.org
+   -> https://nodejs.org
    (Click the green LTS button)
 
 B) Install Git
-   → https://git-scm.com/downloads
+   -> https://git-scm.com/downloads
    (Download for Windows, run installer)
 
 C) Install pnpm
@@ -64,7 +66,7 @@ When asked, select your Discord installation.
 STEP 5: Enable Plugin
 ---------------------
 
-1. Restart Discord completely (right-click tray icon → Quit)
+1. Restart Discord completely (right-click tray icon -> Quit)
 2. Open Discord
 3. Go to Settings (gear icon)
 4. Scroll down to "Vencord" section
@@ -72,8 +74,8 @@ STEP 5: Enable Plugin
 6. Find "CCVibe" and toggle it ON
 
 
-STEP 6: Set Up API Keys (Required)
------------------------------------
+STEP 6: Set Up API Keys (Required for full translation)
+--------------------------------------------------------
 
 1. In Discord, go to Settings > Vencord > Plugins
 2. Find "CCVibe" and click the GEAR icon next to it
@@ -83,10 +85,22 @@ STEP 6: Set Up API Keys (Required)
 4. You need at least one key. Both is best!
 
 
+STEP 7: Choose Your Languages (Optional)
+-----------------------------------------
+
+By default, CCVibe detects and translates BOTH languages.
+You can turn either off in the plugin settings (gear icon):
+
+   [x] Detect and translate Roman Hindi/Urdu messages   <- toggle ON/OFF
+   [x] Detect and translate Indonesian (Bahasa Indonesia) messages  <- toggle ON/OFF
+
+Mix and match to your preference!
+
+
 DONE! You're all set!
 ---------------------
 
-Messages in Roman Hindi/Urdu will auto-translate to English.
+Messages in Roman Hindi/Urdu or Indonesian will auto-translate to English.
 Hover over translated text to see the original.
 
 
@@ -94,10 +108,24 @@ How It Works
 ------------
 CCVibe uses smart routing to pick the best translator:
 
-• Profanity/slang    → Dictionary + Google (unfiltered)
-• Short phrases      → Google Translate (literal)
-• Abbreviations      → Word-by-word expansion
-• Conversations      → Groq AI (context-aware)
+  Profanity/slang    ->  Dictionary + Google (unfiltered)
+  Short phrases      ->  Google Translate (literal)
+  Abbreviations      ->  Word-by-word expansion
+  Conversations      ->  Groq AI (context-aware)
+
+Works for both Hindi/Urdu and Indonesian through the same pipeline!
+
+
+Languages Supported
+--------------------
+
+Roman Hindi/Urdu:
+  kya kar rha hai bhai? -> "What are you doing brother?"
+  sab theek hai yaar    -> "Everything's fine man"
+
+Indonesian (Bahasa Indonesia):
+  wkwk gue gak tau bro  -> "haha I don't know bro"
+  gimana kabarnya?       -> "How are you doing?"
 
 
 Troubleshooting
@@ -114,6 +142,14 @@ A: Close and reopen Command Prompt after installing Node.js
 
 Q: Need to update the plugin?
 A: Replace the ccvibe folder and run: pnpm build
+
+Q: Indonesian messages not being detected?
+A: Make sure "Detect Indonesian" is toggled ON in CCVibe settings.
+
+Q: Getting false positives (English messages being translated)?
+A: The plugin requires multiple language-specific word matches before
+   triggering, so false positives are rare. If it happens, let us know
+   the message so we can improve detection.
 
 
 ========================================

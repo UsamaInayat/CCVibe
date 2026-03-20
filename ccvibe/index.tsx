@@ -1,9 +1,9 @@
 /*
- * CCVibe - Auto-translate Roman Hindi/Urdu to English
+ * CCVibe - Auto-translate Roman Hindi/Urdu and Indonesian to English
  * A Vencord plugin for Discord
  *
- * Automatically detects and translates Romanized Hindi/Urdu messages
- * to English with INLINE replacement. Hover to see original.
+ * Automatically detects and translates Romanized Hindi/Urdu and Indonesian
+ * messages to English with INLINE replacement. Hover to see original.
  */
 
 import "./styles.css";
@@ -12,7 +12,7 @@ import definePlugin from "@utils/types";
 import { lodash } from "@webpack/common";
 import { ReactElement } from "react";
 
-import { isLikelyHindiUrdu } from "./detector";
+import { isLikelyHindiUrdu, isLikelyIndonesian } from "./detector";
 import { settings } from "./settings";
 import { TranslatedText } from "./TranslatedText";
 import { requestCspOverride, translateToEnglish } from "./translate";
@@ -25,7 +25,7 @@ const pendingTranslations = new Set<string>();
 
 export default definePlugin({
     name: "CCVibe",
-    description: "Auto-translate Roman Hindi/Urdu messages to English (inline replacement)",
+    description: "Auto-translate Roman Hindi/Urdu and Indonesian messages to English (inline replacement)",
     authors: [
         {
             name: "CCVibe",
@@ -99,10 +99,17 @@ export default definePlugin({
 
     // Process a text string - return translated component or original
     processText(text: string): string | ReactElement {
-        // Skip short or non-Hindi/Urdu text
-        if (!text || text.length < 4 || !isLikelyHindiUrdu(text)) {
-            return text;
+        if (!text || text.length < 4) return text;
+
+        // Determine which language was detected based on user settings
+        let detectedLang: "hi-ur" | "id" | null = null;
+        if (settings.store.detectHindiUrdu && isLikelyHindiUrdu(text)) {
+            detectedLang = "hi-ur";
+        } else if (settings.store.detectIndonesian && isLikelyIndonesian(text)) {
+            detectedLang = "id";
         }
+
+        if (!detectedLang) return text;
 
         // Check if we have a cached translation
         const cached = translationCache.get(text);
@@ -121,14 +128,12 @@ export default definePlugin({
         if (!pendingTranslations.has(text)) {
             pendingTranslations.add(text);
 
-            translateToEnglish(text).then(result => {
+            translateToEnglish(text, detectedLang).then(result => {
                 pendingTranslations.delete(text);
 
                 if (result.translated !== result.original) {
                     translationCache.set(text, result.translated);
-                    // Note: We can't easily trigger a re-render here since we don't have message context
-                    // The translation will show on next render (scroll away and back, or new message in channel)
-                    console.log(`[CCVibe] Translated: "${text}" -> "${result.translated}"`);
+                    console.log(`[CCVibe] Translated (${detectedLang}): "${text}" -> "${result.translated}"`);
                 }
             }).catch(e => {
                 pendingTranslations.delete(text);
@@ -141,7 +146,7 @@ export default definePlugin({
     },
 
     async start() {
-        console.log("[CCVibe] Plugin starting...");
+        console.log("[CCVibe] Plugin starting (Hindi/Urdu + Indonesian)...");
 
         // Check if native module is available for Groq API
         const nativeAvailable = await requestCspOverride();

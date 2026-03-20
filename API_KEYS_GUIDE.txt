@@ -5,6 +5,9 @@
 CCVibe needs API keys to translate messages.
 You can use one or both - the plugin works with whatever you provide.
 
+Both Hindi/Urdu AND Indonesian translation use the same API keys.
+No separate keys needed per language!
+
 
 OPTION 1: Google Translate API Key (Recommended - Free Tier)
 ------------------------------------------------------------
@@ -21,7 +24,7 @@ OPTION 1: Google Translate API Key (Recommended - Free Tier)
    - Click "+ Create Credentials" > "API Key"
    - Copy the key (starts with AIzaSy...)
 6. Paste it in Discord:
-   Settings > Vencord > Plugins > CCVibe > Google Translate API Key
+   Settings > Vencord > Plugins > CCVibe (gear icon) > Google Translate API Key
 
 Free Tier: 500,000 characters/month at no cost.
 That's roughly ~100,000 messages - more than enough for personal use.
@@ -37,10 +40,11 @@ OPTION 2: Groq API Key (Free - AI-Powered Translation)
 5. Give it a name (e.g., "CCVibe")
 6. Copy the key (starts with gsk_...)
 7. Paste it in Discord:
-   Settings > Vencord > Plugins > CCVibe > Groq API Key
+   Settings > Vencord > Plugins > CCVibe (gear icon) > Groq API Key
 
 Free Tier: 30 requests/minute, 14,400 requests/day.
 Groq gives better translations for slang and conversational text.
+It handles both Hindi/Urdu AND Indonesian context-aware translation.
 
 
 WHICH ONE SHOULD I USE?

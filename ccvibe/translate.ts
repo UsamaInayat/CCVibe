@@ -1,5 +1,5 @@
 /*
- * CCVibe - Auto-translate Roman Hindi/Urdu to English
+ * CCVibe - Auto-translate Roman Hindi/Urdu and Indonesian to English
  * Smart routing: picks best translator based on sentence analysis
  */
 
@@ -25,20 +25,30 @@ const MAX_CACHE_SIZE = 500;
 
 // Profanity/slang keywords - use Dictionary + Google for these (unfiltered)
 const PROFANITY_KEYWORDS = new Set([
+    // Hindi/Urdu profanity
     "lun", "lund", "lora", "gandu", "gandhu", "gandy",
     "chutiya", "chutiye", "chutia", "chuut", "chut",
     "bhosdike", "bhosdi", "bsdk", "madarchod", "mc", "bc",
     "behenchod", "bhenchod", "bhen", "gaand", "gand",
     "harami", "haramkhor", "kutta", "kutte", "kutty",
     "kamina", "kamine", "kameena", "sala", "saale", "saala",
-    "randi", "rand", "maa", "baap", "teri", "meri"
+    "randi", "rand", "maa", "baap", "teri", "meri",
+    // Indonesian profanity
+    "anjing", "anjir", "anjay", "bangsat", "babi", "kampret",
+    "keparat", "bajingan", "tai", "goblok", "bodoh", "tolol",
+    "bego", "setan", "sialan", "kontol", "ngentot", "jancok", "dancok"
 ]);
 
 // Common abbreviations - need word-by-word expansion
 const ABBREVIATIONS = new Set([
+    // Hindi/Urdu abbreviations
     "tm", "ap", "nhi", "ni", "hy", "hen", "kro", "kra",
     "rha", "rhi", "rhe", "ho", "kr", "sy", "k", "b", "v",
-    "p", "h", "toh", "bhi", "kya", "kyu", "kyun", "aur"
+    "p", "h", "toh", "bhi", "kya", "kyu", "kyun", "aur",
+    // Indonesian abbreviations
+    "gw", "gue", "gua", "lo", "lu", "bgt", "yg", "dgn",
+    "krn", "kl", "klo", "tp", "jd", "ntar", "msh", "gmn",
+    "pgn", "gpp", "gapapa", "udah", "emang", "gimana"
 ]);
 
 // Slang dictionary for direct lookups
@@ -90,7 +100,7 @@ const SLANG_DICTIONARY: Record<string, string> = {
     "randi": "whore",
     "rand": "whore",
 
-    // Abbreviations
+    // Hindi/Urdu abbreviations
     "tm": "you",
     "ap": "you (formal)",
     "nhi": "no",
@@ -116,6 +126,78 @@ const SLANG_DICTIONARY: Record<string, string> = {
     "kyu": "why",
     "kyun": "why",
     "aur": "and",
+
+    // Indonesian profanity
+    "anjing": "dog (insult)/damn",
+    "anjir": "damn (euphemism)",
+    "anjay": "damn/wow (euphemism)",
+    "bangsat": "scoundrel/bastard",
+    "babi": "pig (insult)",
+    "kampret": "damn it",
+    "keparat": "bastard",
+    "bajingan": "scoundrel/villain",
+    "tai": "shit",
+    "goblok": "stupid/idiot",
+    "bodoh": "stupid",
+    "tolol": "idiot/dumb",
+    "bego": "dumb/stupid",
+    "setan": "devil/damn",
+    "sialan": "damn it",
+    "kontol": "dick",
+    "ngentot": "fuck",
+    "jancok": "fuck (Javanese)",
+    "dancok": "fuck (Javanese)",
+
+    // Indonesian internet slang
+    "wkwk": "haha",
+    "wkwkwk": "hahaha",
+    "wkwkwkwk": "hahaha",
+    "mantap": "awesome/cool",
+    "mantul": "awesome",
+    "gaskeun": "let's go/go for it",
+    "kepo": "nosy/curious",
+    "gabut": "bored with nothing to do",
+    "baper": "easily emotional/oversensitive",
+    "lebay": "overdramatic/exaggerating",
+    "mager": "too lazy to move",
+    "santuy": "chill/relax",
+    "kuy": "let's go",
+    "skuy": "let's go",
+    "bucin": "lovesick person",
+    "ngab": "bro/buddy",
+    "gapapa": "it's okay",
+    "gpp": "it's okay",
+
+    // Indonesian abbreviations
+    "gw": "I (me)",
+    "gue": "I (me)",
+    "gua": "I (me)",
+    "lo": "you",
+    "lu": "you",
+    "bgt": "very",
+    "yg": "that/which",
+    "dgn": "with",
+    "krn": "because",
+    "kl": "if",
+    "klo": "if",
+    "tp": "but",
+    "jd": "so/become",
+    "ntar": "later",
+    "msh": "still",
+    "gmn": "how",
+    "pgn": "want",
+    "udah": "already",
+    "emang": "indeed/really",
+    "gimana": "how",
+    "kayak": "like/similar to",
+    "banget": "very/extremely",
+    "dong": "you know/please (particle)",
+    "sih": "actually/really (particle)",
+    "deh": "okay then (particle)",
+    "lho": "hey/really (particle)",
+    "kan": "right?/isn't it (particle)",
+    "nih": "here/this (particle)",
+    "lah": "come on/okay (particle)",
 };
 
 // Track if native module is available
@@ -296,26 +378,35 @@ function isRealTranslation(original: string, translated: string): boolean {
 }
 
 /**
- * Try Google with multiple source languages
+ * Try Google with Hindi then Urdu then auto (for Hindi/Urdu text)
  */
 async function tryGoogleTranslate(text: string): Promise<string | null> {
     // Try Hindi first
     let result = await googleTranslate(text, "hi");
-    if (result && isRealTranslation(text, result)) {
-        return result;
-    }
+    if (result && isRealTranslation(text, result)) return result;
 
     // Try Urdu
     result = await googleTranslate(text, "ur");
-    if (result && isRealTranslation(text, result)) {
-        return result;
-    }
+    if (result && isRealTranslation(text, result)) return result;
 
     // Try auto-detect
     result = await googleTranslate(text, "auto");
-    if (result && isRealTranslation(text, result)) {
-        return result;
-    }
+    if (result && isRealTranslation(text, result)) return result;
+
+    return null;
+}
+
+/**
+ * Try Google with Indonesian source (for Indonesian text)
+ */
+async function tryIndonesianTranslate(text: string): Promise<string | null> {
+    // Try Indonesian first
+    let result = await googleTranslate(text, "id");
+    if (result && isRealTranslation(text, result)) return result;
+
+    // Try auto-detect as fallback
+    result = await googleTranslate(text, "auto");
+    if (result && isRealTranslation(text, result)) return result;
 
     return null;
 }
@@ -374,8 +465,10 @@ async function translateWordByWord(text: string): Promise<string> {
 
 /**
  * Main translation function with smart routing
+ * @param text Text to translate
+ * @param language Source language hint: "hi-ur" for Hindi/Urdu (default), "id" for Indonesian
  */
-export async function translateToEnglish(text: string): Promise<TranslationResult> {
+export async function translateToEnglish(text: string, language: "hi-ur" | "id" = "hi-ur"): Promise<TranslationResult> {
     // Check cache
     const cached = translationCache.get(text);
     if (cached) return cached;
@@ -406,11 +499,14 @@ export async function translateToEnglish(text: string): Promise<TranslationResul
 
         let result: string | null = null;
 
+        // Pick the correct Google-level function based on source language
+        const googleFn = language === "id" ? tryIndonesianTranslate : tryGoogleTranslate;
+
         // Route based on analysis
         switch (analysis.recommendedTranslator) {
             case "dictionary":
                 // Already checked above, fallthrough to google
-                result = await tryGoogleTranslate(text);
+                result = await googleFn(text);
                 if (result) {
                     console.log(`[CCVibe] Google (${Date.now() - startTime}ms): "${text}" -> "${result}"`);
                     return cacheAndReturn(result, "google");
@@ -419,7 +515,7 @@ export async function translateToEnglish(text: string): Promise<TranslationResul
 
             case "google":
                 // Try Google first (unfiltered, literal)
-                result = await tryGoogleTranslate(text);
+                result = await googleFn(text);
                 if (result) {
                     console.log(`[CCVibe] Google (${Date.now() - startTime}ms): "${text}" -> "${result}"`);
                     return cacheAndReturn(result, "google");
@@ -442,7 +538,7 @@ export async function translateToEnglish(text: string): Promise<TranslationResul
                     return cacheAndReturn(result, "groq");
                 }
                 // Fallback to Google
-                result = await tryGoogleTranslate(text);
+                result = await googleFn(text);
                 if (result) {
                     console.log(`[CCVibe] Google fallback (${Date.now() - startTime}ms): "${text}" -> "${result}"`);
                     return cacheAndReturn(result, "google");
@@ -457,7 +553,7 @@ export async function translateToEnglish(text: string): Promise<TranslationResul
                     return cacheAndReturn(wordByWord, "word-by-word");
                 }
                 // Fallback to Google
-                result = await tryGoogleTranslate(text);
+                result = await googleFn(text);
                 if (result) {
                     console.log(`[CCVibe] Google fallback (${Date.now() - startTime}ms): "${text}" -> "${result}"`);
                     return cacheAndReturn(result, "google");
@@ -466,7 +562,7 @@ export async function translateToEnglish(text: string): Promise<TranslationResul
         }
 
         // Last resort: try everything
-        result = await tryGoogleTranslate(text);
+        result = await googleFn(text);
         if (result) {
             return cacheAndReturn(result, "google");
         }

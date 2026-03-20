@@ -1,6 +1,6 @@
 /*
- * CCVibe - Auto-translate Roman Hindi/Urdu to English
- * Language detection for Romanized Hindi/Urdu
+ * CCVibe - Auto-translate Roman Hindi/Urdu and Indonesian to English
+ * Language detection for Romanized Hindi/Urdu and Bahasa Indonesia
  */
 
 // Common Roman Hindi/Urdu words and patterns
@@ -109,6 +109,95 @@ const HINDI_URDU_PATTERNS = [
     /\b(wala|wali|wale)\b/i,
 ];
 
+// ============================================================
+// INDONESIAN (Bahasa Indonesia) DETECTION PATTERNS
+// ============================================================
+
+const INDONESIAN_PATTERNS = [
+    // Informal pronouns - Jakarta/internet slang (very distinctive)
+    /\b(gue|gw|gua)\b/i,
+    /\b(lo|lu)\b/i,
+
+    // Formal and neutral pronouns
+    /\b(aku|saya|kamu|anda|mereka|kita|kami|kalian)\b/i,
+
+    // Question words
+    /\b(apa|siapa|kapan|kenapa|mengapa|bagaimana|gimana|berapa|ngapain)\b/i,
+
+    // Negation (very distinctive)
+    /\b(nggak|enggak|gak|ndak)\b/i,
+    /\b(tidak|bukan|jangan|belum)\b/i,
+
+    // Sentence-final particles (EXTREMELY distinctive to Indonesian/Javanese)
+    /\b(dong|sih|deh|lho|loh|lah)\b/i,
+    /\b(nih|kan)\b/i,
+
+    // Degree adverbs (very common, very distinctive)
+    /\b(banget|sangat|amat|lumayan|agak)\b/i,
+
+    // Temporal adverbs
+    /\b(sudah|udah|masih|lagi|segera|terlanjur)\b/i,
+    /\b(sekarang|nanti|tadi|besok|kemarin)\b/i,
+    /\b(pagi|siang|malam)\b/i,
+
+    // Restrictors
+    /\b(cuma|hanya|aja|doang|saja)\b/i,
+
+    // Conjunctions (distinctive, not in English)
+    /\b(karena|soalnya|supaya|biar|meski|meskipun|walaupun|padahal)\b/i,
+    /\b(atau|tetapi|namun|walau|tapi)\b/i,
+
+    // Prepositions / function words
+    /\b(untuk|buat|kepada|dengan|tanpa|tentang|terhadap)\b/i,
+    /\b(dari|sejak|selama|sampai|hingga|sebelum|setelah|ketika)\b/i,
+
+    // Demonstratives (all safe, none are English words)
+    /\b(ini|itu|sini|situ|sana)\b/i,
+
+    // Existence / to be
+    /\b(ada|adalah|ialah|merupakan)\b/i,
+
+    // Modal verbs
+    /\b(mau|bisa|boleh|harus|perlu|wajib|ingin|pengen)\b/i,
+
+    // Common verbs
+    /\b(pergi|datang|makan|minum|tidur|bangun)\b/i,
+    /\b(kerja|belajar|jalan|lari|duduk|berdiri)\b/i,
+    /\b(lihat|dengar|tahu|pikir|rasa|bilang|ngomong)\b/i,
+    /\b(kasih|ambil|beli|jual|bayar|tunggu|cari)\b/i,
+    /\b(suka|cinta|sayang|benci|takut|senang|sedih|marah)\b/i,
+
+    // Social / address terms
+    /\b(teman|kawan|sahabat|kakak|adik|om|tante)\b/i,
+    /\b(mas|mbak|pak)\b/i,
+
+    // Internet slang (very distinctive to Indonesian online culture)
+    /\b(wkwk|wkwkwk|wkwkwkwk)\b/i,
+    /\b(anjir|anjay|mantap|mantul|gaskeun)\b/i,
+    /\b(kepo|gabut|baper|lebay|mager|santuy)\b/i,
+    /\b(kuy|skuy|bucin)\b/i,
+    /\b(gapapa|gpp)\b/i,
+    /\b(emang|memang|kayak|kayaknya|pokoknya|intinya)\b/i,
+    /\b(gimana|gitu|gini)\b/i,
+
+    // Common adjectives (none of these are English words)
+    /\b(bagus|baik|buruk|jelek|besar|kecil|baru)\b/i,
+    /\b(mahal|murah|capek|lelah|lapar|kenyang|panas|dingin)\b/i,
+    /\b(banyak|sedikit|jauh|dekat|lama)\b/i,
+
+    // Common nouns
+    /\b(rumah|uang|waktu|hari|orang|tempat|negara|kota|sekolah)\b/i,
+    /\b(makanan|minuman|barang|masalah)\b/i,
+    /\b(bulan|tahun|minggu)\b/i,
+
+    // Greetings
+    /\b(halo|selamat|permisi|maaf)\b/i,
+    /\b(makasih|terima\s*kasih)\b/i,
+
+    // Texting abbreviations (distinctive to Indonesian texting)
+    /\b(bgt|yg|dgn|krn|klo|ntar|msh|gmn|pgn)\b/i,
+];
+
 // Words that are definitely English (avoid false positives)
 const ENGLISH_INDICATORS = [
     /\b(the|and|but|for|are|was|were|been|being|have|has|had)\b/i,
@@ -121,18 +210,23 @@ const ENGLISH_INDICATORS = [
 ];
 
 /**
+ * Shared early-exit checks used by both detectors
+ */
+function shouldSkip(text: string): boolean {
+    if (text.length < 4) return true;
+    if (/^https?:\/\//.test(text)) return true;
+    if (/^[\/!\.]\w+/.test(text)) return true;
+    if (/^```/.test(text)) return true;
+    return false;
+}
+
+/**
  * Detects if a message is likely Roman Hindi/Urdu
  * @param text The message text to analyze
  * @returns true if the message appears to be Roman Hindi/Urdu
  */
 export function isLikelyHindiUrdu(text: string): boolean {
-    // Skip very short messages
-    if (text.length < 4) return false;
-
-    // Skip if it looks like a URL, command, or code
-    if (/^https?:\/\//.test(text)) return false;
-    if (/^[\/!\.]\w+/.test(text)) return false;
-    if (/^```/.test(text)) return false;
+    if (shouldSkip(text)) return false;
 
     // Count Hindi/Urdu pattern matches
     let hindiMatches = 0;
@@ -170,5 +264,45 @@ export function isLikelyHindiUrdu(text: string): boolean {
     } else {
         // Longer messages: need good ratio
         return hindiMatches >= 1 && hindiMatches >= englishMatches;
+    }
+}
+
+/**
+ * Detects if a message is likely Indonesian (Bahasa Indonesia)
+ * Uses the same scoring logic as isLikelyHindiUrdu
+ * @param text The message text to analyze
+ * @returns true if the message appears to be Indonesian
+ */
+export function isLikelyIndonesian(text: string): boolean {
+    if (shouldSkip(text)) return false;
+
+    // Count Indonesian pattern matches
+    let indoMatches = 0;
+    for (const pattern of INDONESIAN_PATTERNS) {
+        if (pattern.test(text)) {
+            indoMatches++;
+        }
+    }
+
+    // Count English indicator matches
+    let englishMatches = 0;
+    for (const pattern of ENGLISH_INDICATORS) {
+        if (pattern.test(text)) {
+            englishMatches++;
+        }
+    }
+
+    const wordCount = text.split(/\s+/).length;
+
+    if (indoMatches > 0) {
+        console.log(`[CCVibe] Detection: "${text}" - Indonesian:${indoMatches} English:${englishMatches} Words:${wordCount}`);
+    }
+
+    if (wordCount <= 3) {
+        return indoMatches >= 1 && englishMatches === 0;
+    } else if (wordCount <= 6) {
+        return indoMatches >= 1 && indoMatches > englishMatches;
+    } else {
+        return indoMatches >= 1 && indoMatches >= englishMatches;
     }
 }
