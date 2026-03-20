@@ -1,0 +1,75 @@
+========================================
+     CCVibe - API Keys Setup Guide
+========================================
+
+CCVibe needs API keys to translate messages.
+You can use one or both - the plugin works with whatever you provide.
+
+
+OPTION 1: Google Translate API Key (Recommended - Free Tier)
+------------------------------------------------------------
+
+1. Go to: https://console.cloud.google.com/
+2. Sign in with your Google account
+3. Create a new project (or select an existing one)
+4. Enable the "Cloud Translation API":
+   - Go to APIs & Services > Library
+   - Search "Cloud Translation API"
+   - Click Enable
+5. Create an API key:
+   - Go to APIs & Services > Credentials
+   - Click "+ Create Credentials" > "API Key"
+   - Copy the key (starts with AIzaSy...)
+6. Paste it in Discord:
+   Settings > Vencord > Plugins > CCVibe > Google Translate API Key
+
+Free Tier: 500,000 characters/month at no cost.
+That's roughly ~100,000 messages - more than enough for personal use.
+
+
+OPTION 2: Groq API Key (Free - AI-Powered Translation)
+-------------------------------------------------------
+
+1. Go to: https://console.groq.com/
+2. Sign up or sign in (Google/GitHub login works)
+3. Go to: https://console.groq.com/keys
+4. Click "Create API Key"
+5. Give it a name (e.g., "CCVibe")
+6. Copy the key (starts with gsk_...)
+7. Paste it in Discord:
+   Settings > Vencord > Plugins > CCVibe > Groq API Key
+
+Free Tier: 30 requests/minute, 14,400 requests/day.
+Groq gives better translations for slang and conversational text.
+
+
+WHICH ONE SHOULD I USE?
+------------------------
+
+Best experience: Set up BOTH keys.
+
+CCVibe is smart about which translator to use:
+  - Google Translate  ->  Short phrases, literal translations
+  - Groq AI           ->  Slang, conversations, context-heavy text
+  - Dictionary        ->  Profanity/common words (no key needed)
+  - Word-by-word      ->  Abbreviation-heavy text (no key needed)
+
+If you only want one: Google Translate covers most cases.
+If you set neither: Dictionary and word-by-word still work for common words.
+
+
+WHERE TO ENTER THE KEYS
+------------------------
+
+1. Open Discord
+2. Click the gear icon (Settings)
+3. Scroll down to "Vencord" section
+4. Click "Plugins"
+5. Find "CCVibe" and click the gear icon next to it
+6. Enter your API key(s) in the text fields
+7. Done! No restart needed.
+
+
+========================================
+     Made with <3 for the homies
+========================================

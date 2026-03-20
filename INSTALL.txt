@@ -1,0 +1,121 @@
+========================================
+     CCVibe - Installation Guide
+========================================
+
+Auto-translates Roman Hindi/Urdu to English in Discord.
+Smart routing picks the best translator for each sentence!
+
+
+WHAT YOU RECEIVED
+-----------------
+A folder called "ccvibe" containing the plugin files.
+A file called "API_KEYS_GUIDE.txt" with instructions to get your free API keys.
+
+
+STEP 1: Install Prerequisites (One-time, ~5 min)
+------------------------------------------------
+
+A) Install Node.js
+   → https://nodejs.org
+   (Click the green LTS button)
+
+B) Install Git
+   → https://git-scm.com/downloads
+   (Download for Windows, run installer)
+
+C) Install pnpm
+   Open Command Prompt (search "cmd") and run:
+
+   npm install -g pnpm
+
+
+STEP 2: Get Vencord (~2 min)
+----------------------------
+
+Open Command Prompt and run these commands:
+
+   git clone https://github.com/Vendicated/Vencord.git
+   cd Vencord
+   pnpm install
+
+
+STEP 3: Add CCVibe Plugin (~1 min)
+----------------------------------
+
+1. Open the Vencord folder you just cloned
+2. Go to: src\userplugins\
+   (Create "userplugins" folder if it doesn't exist)
+3. Copy the entire "ccvibe" folder into userplugins
+
+   Final path should be: Vencord\src\userplugins\ccvibe\
+
+
+STEP 4: Build & Inject (~2 min)
+-------------------------------
+
+In Command Prompt (still in Vencord folder), run:
+
+   pnpm build
+   pnpm inject
+
+When asked, select your Discord installation.
+
+
+STEP 5: Enable Plugin
+---------------------
+
+1. Restart Discord completely (right-click tray icon → Quit)
+2. Open Discord
+3. Go to Settings (gear icon)
+4. Scroll down to "Vencord" section
+5. Click "Plugins"
+6. Find "CCVibe" and toggle it ON
+
+
+STEP 6: Set Up API Keys (Required)
+-----------------------------------
+
+1. In Discord, go to Settings > Vencord > Plugins
+2. Find "CCVibe" and click the GEAR icon next to it
+3. Enter your API keys (see API_KEYS_GUIDE.txt for how to get them):
+   - Google Translate API Key  (free 500k chars/month)
+   - Groq API Key              (free 14,400 requests/day)
+4. You need at least one key. Both is best!
+
+
+DONE! You're all set!
+---------------------
+
+Messages in Roman Hindi/Urdu will auto-translate to English.
+Hover over translated text to see the original.
+
+
+How It Works
+------------
+CCVibe uses smart routing to pick the best translator:
+
+• Profanity/slang    → Dictionary + Google (unfiltered)
+• Short phrases      → Google Translate (literal)
+• Abbreviations      → Word-by-word expansion
+• Conversations      → Groq AI (context-aware)
+
+
+Troubleshooting
+---------------
+
+Q: Translations not showing?
+A: Scroll away and back, or switch channels.
+
+Q: Plugin not in list?
+A: Make sure ccvibe folder is in src\userplugins\ and you ran pnpm build
+
+Q: "pnpm not found" error?
+A: Close and reopen Command Prompt after installing Node.js
+
+Q: Need to update the plugin?
+A: Replace the ccvibe folder and run: pnpm build
+
+
+========================================
+     Made with <3 for the homies
+========================================
