@@ -221,88 +221,42 @@ function shouldSkip(text: string): boolean {
 }
 
 /**
- * Detects if a message is likely Roman Hindi/Urdu
- * @param text The message text to analyze
- * @returns true if the message appears to be Roman Hindi/Urdu
+ * Shared scoring logic for language detection.
+ * Counts pattern matches against a language's pattern list and against
+ * English indicators, then applies word-count-based thresholds.
  */
-export function isLikelyHindiUrdu(text: string): boolean {
+function detectByScore(text: string, patterns: RegExp[], label: string): boolean {
     if (shouldSkip(text)) return false;
 
-    // Count Hindi/Urdu pattern matches
-    let hindiMatches = 0;
-    for (const pattern of HINDI_URDU_PATTERNS) {
-        if (pattern.test(text)) {
-            hindiMatches++;
-        }
+    let langMatches = 0;
+    for (const pattern of patterns) {
+        if (pattern.test(text)) langMatches++;
     }
+    if (langMatches === 0) return false;
 
-    // Count English indicator matches
     let englishMatches = 0;
     for (const pattern of ENGLISH_INDICATORS) {
-        if (pattern.test(text)) {
-            englishMatches++;
-        }
+        if (pattern.test(text)) englishMatches++;
     }
 
-    // Decision logic:
-    // - Need at least 1 Hindi/Urdu match
-    // - Hindi matches should outweigh English matches
-    // - For very short messages, require stronger signals
     const wordCount = text.split(/\s+/).length;
+    console.log(`[CCVibe] Detection: "${text}" - ${label}:${langMatches} English:${englishMatches} Words:${wordCount}`);
 
-    // Debug logging (can be removed later)
-    if (hindiMatches > 0) {
-        console.log(`[CCVibe] Detection: "${text}" - Hindi:${hindiMatches} English:${englishMatches} Words:${wordCount}`);
-    }
+    if (wordCount <= 3) return englishMatches === 0;
+    if (wordCount <= 6) return langMatches > englishMatches;
+    return langMatches >= englishMatches;
+}
 
-    if (wordCount <= 3) {
-        // Short messages: need at least 1 match and no strong English
-        return hindiMatches >= 1 && englishMatches === 0;
-    } else if (wordCount <= 6) {
-        // Medium messages: need at least 1 match and more Hindi than English
-        return hindiMatches >= 1 && hindiMatches > englishMatches;
-    } else {
-        // Longer messages: need good ratio
-        return hindiMatches >= 1 && hindiMatches >= englishMatches;
-    }
+/**
+ * Detects if a message is likely Roman Hindi/Urdu
+ */
+export function isLikelyHindiUrdu(text: string): boolean {
+    return detectByScore(text, HINDI_URDU_PATTERNS, "Hindi");
 }
 
 /**
  * Detects if a message is likely Indonesian (Bahasa Indonesia)
- * Uses the same scoring logic as isLikelyHindiUrdu
- * @param text The message text to analyze
- * @returns true if the message appears to be Indonesian
  */
 export function isLikelyIndonesian(text: string): boolean {
-    if (shouldSkip(text)) return false;
-
-    // Count Indonesian pattern matches
-    let indoMatches = 0;
-    for (const pattern of INDONESIAN_PATTERNS) {
-        if (pattern.test(text)) {
-            indoMatches++;
-        }
-    }
-
-    // Count English indicator matches
-    let englishMatches = 0;
-    for (const pattern of ENGLISH_INDICATORS) {
-        if (pattern.test(text)) {
-            englishMatches++;
-        }
-    }
-
-    const wordCount = text.split(/\s+/).length;
-
-    if (indoMatches > 0) {
-        console.log(`[CCVibe] Detection: "${text}" - Indonesian:${indoMatches} English:${englishMatches} Words:${wordCount}`);
-    }
-
-    if (wordCount <= 3) {
-        return indoMatches >= 1 && englishMatches === 0;
-    } else if (wordCount <= 6) {
-        return indoMatches >= 1 && indoMatches > englishMatches;
-    } else {
-        return indoMatches >= 1 && indoMatches >= englishMatches;
-    }
+    return detectByScore(text, INDONESIAN_PATTERNS, "Indonesian");
 }

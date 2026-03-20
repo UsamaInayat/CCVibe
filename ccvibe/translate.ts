@@ -45,10 +45,10 @@ const ABBREVIATIONS = new Set([
     "tm", "ap", "nhi", "ni", "hy", "hen", "kro", "kra",
     "rha", "rhi", "rhe", "ho", "kr", "sy", "k", "b", "v",
     "p", "h", "toh", "bhi", "kya", "kyu", "kyun", "aur",
-    // Indonesian abbreviations
-    "gw", "gue", "gua", "lo", "lu", "bgt", "yg", "dgn",
+    // Indonesian abbreviations (genuinely shortened forms only)
+    "gw", "lo", "lu", "bgt", "yg", "dgn",
     "krn", "kl", "klo", "tp", "jd", "ntar", "msh", "gmn",
-    "pgn", "gpp", "gapapa", "udah", "emang", "gimana"
+    "pgn", "gpp"
 ]);
 
 // Slang dictionary for direct lookups
@@ -222,7 +222,7 @@ interface SentenceAnalysis {
 /**
  * Analyze sentence to determine best translation method
  */
-function analyzeSentence(text: string): SentenceAnalysis {
+function analyzeSentence(text: string, language: "hi-ur" | "id" = "hi-ur"): SentenceAnalysis {
     const lowerText = text.toLowerCase().trim();
     const words = lowerText.split(/\s+/).filter(w => w.length > 0);
     const wordCount = words.length;
@@ -235,11 +235,17 @@ function analyzeSentence(text: string): SentenceAnalysis {
     const hasAbbreviations = abbreviationCount > 0;
     const abbreviationRatio = wordCount > 0 ? abbreviationCount / wordCount : 0;
 
-    // Check if question
-    const isQuestion = /\?$/.test(text) || /^(kya|kyu|kyun|kaisa|kaisi|kaise|kahan|kab|kon|kaun)\b/i.test(lowerText);
+    // Language-specific question and conversational signals
+    const isQuestion = language === "id"
+        ? /\?$/.test(text) || /^(apa|siapa|kapan|kenapa|mengapa|bagaimana|gimana|berapa)\b/i.test(lowerText)
+        : /\?$/.test(text) || /^(kya|kyu|kyun|kaisa|kaisi|kaise|kahan|kab|kon|kaun)\b/i.test(lowerText);
 
-    // Conversational patterns (greetings, casual chat)
-    const conversationalPatterns = [
+    const conversationalPatterns = language === "id" ? [
+        /\b(teman|kawan|sahabat|bro|sis|bang|om|tante|kakak|adik)\b/i,
+        /\b(oke|sip|mantap|santuy|gaskeun|kuy)\b/i,
+        /\b(gimana|gitu|gini|kayak|emang)\b/i,
+        /\b(dong|sih|deh|nih|lho)\b/i,
+    ] : [
         /\b(yaar|bhai|dost|bro|sis)\b/i,
         /\b(acha|theek|okay|ok|haan|han|ji)\b/i,
         /\b(kaise ho|kaisay ho|kya hal|sab theek)\b/i,
@@ -378,38 +384,19 @@ function isRealTranslation(original: string, translated: string): boolean {
 }
 
 /**
- * Try Google with Hindi then Urdu then auto (for Hindi/Urdu text)
+ * Try Google Translate with an ordered list of source language codes.
+ * Returns the first successful, meaningfully different translation.
  */
-async function tryGoogleTranslate(text: string): Promise<string | null> {
-    // Try Hindi first
-    let result = await googleTranslate(text, "hi");
-    if (result && isRealTranslation(text, result)) return result;
-
-    // Try Urdu
-    result = await googleTranslate(text, "ur");
-    if (result && isRealTranslation(text, result)) return result;
-
-    // Try auto-detect
-    result = await googleTranslate(text, "auto");
-    if (result && isRealTranslation(text, result)) return result;
-
+async function tryTranslateWithLangs(text: string, langs: string[]): Promise<string | null> {
+    for (const lang of langs) {
+        const result = await googleTranslate(text, lang);
+        if (result && isRealTranslation(text, result)) return result;
+    }
     return null;
 }
 
-/**
- * Try Google with Indonesian source (for Indonesian text)
- */
-async function tryIndonesianTranslate(text: string): Promise<string | null> {
-    // Try Indonesian first
-    let result = await googleTranslate(text, "id");
-    if (result && isRealTranslation(text, result)) return result;
-
-    // Try auto-detect as fallback
-    result = await googleTranslate(text, "auto");
-    if (result && isRealTranslation(text, result)) return result;
-
-    return null;
-}
+const tryGoogleTranslate    = (text: string) => tryTranslateWithLangs(text, ["hi", "ur", "auto"]);
+const tryIndonesianTranslate = (text: string) => tryTranslateWithLangs(text, ["id", "auto"]);
 
 /**
  * Translate a single word using cache -> dictionary -> Google
@@ -487,7 +474,7 @@ export async function translateToEnglish(text: string, language: "hi-ur" | "id" 
         const startTime = Date.now();
 
         // Analyze sentence to determine best translator
-        const analysis = analyzeSentence(text);
+        const analysis = analyzeSentence(text, language);
         console.log(`[CCVibe] Analysis: "${text}" → ${analysis.recommendedTranslator} (words:${analysis.wordCount}, profanity:${analysis.hasProfanity}, abbrev:${Math.round(analysis.abbreviationRatio * 100)}%)`);
 
         // Check if entire text is in dictionary
@@ -561,12 +548,8 @@ export async function translateToEnglish(text: string, language: "hi-ur" | "id" 
                 break;
         }
 
-        // Last resort: try everything
-        result = await googleFn(text);
-        if (result) {
-            return cacheAndReturn(result, "google");
-        }
-
+        // Last resort: Google was already tried in every switch case above.
+        // Try Groq and word-by-word as final fallbacks.
         result = await groqTranslate(text);
         if (result) {
             return cacheAndReturn(result, "groq");
