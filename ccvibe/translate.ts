@@ -347,27 +347,43 @@ async function groqTranslate(text: string): Promise<string | null> {
 }
 
 /**
- * Google Translate API (unfiltered, literal)
+ * Google Cloud Translation API v2 (literal).
+ * Cloud Console keys must use translation.googleapis.com — not translate-pa / gtx (those return 403).
  */
 async function googleTranslate(text: string, sourceLang: string): Promise<string | null> {
     const apiKey = settings.store.googleApiKey;
     if (!apiKey) return null;
 
     try {
-        const url = "https://translate-pa.googleapis.com/v1/translate?" + new URLSearchParams({
-            "params.client": "gtx",
-            "dataTypes": "TRANSLATION",
-            "key": apiKey,
-            "query.sourceLanguage": sourceLang,
-            "query.targetLanguage": "en",
-            "query.text": text,
-        });
+        if (Native && typeof Native.translateWithGoogle === "function") {
+            const result = await Native.translateWithGoogle(text, apiKey, sourceLang);
+            if (result.success && result.translation) {
+                return result.translation;
+            }
+            return null;
+        }
 
-        const res = await fetch(url);
+        const url = `https://translation.googleapis.com/language/translate/v2?key=${encodeURIComponent(apiKey)}`;
+        const body: Record<string, unknown> = {
+            q: text,
+            target: "en",
+            format: "text",
+        };
+        if (sourceLang && sourceLang !== "auto") {
+            body.source = sourceLang;
+        }
+
+        const res = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+        });
         if (!res.ok) return null;
 
-        const data = await res.json();
-        return data.translation || null;
+        const data = await res.json() as {
+            data?: { translations?: { translatedText?: string }[] };
+        };
+        return data?.data?.translations?.[0]?.translatedText ?? null;
     } catch {
         return null;
     }

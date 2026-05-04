@@ -1,6 +1,6 @@
 /*
- * CCVibe - Native module for Groq API calls
- * Runs in Electron's main process - bypasses CSP restrictions
+ * CCVibe - Native module for Groq and Google Cloud Translation API calls
+ * Runs in Electron's main process - bypasses CSP / CORS restrictions
  */
 
 import { IpcMainInvokeEvent } from "electron";
@@ -98,6 +98,74 @@ IMPORTANT RULES:
 
     } catch (e) {
         console.error("[CCVibe Native] Request failed:", e);
+        return { success: false, error: String(e) };
+    }
+}
+
+interface GoogleTranslateV2Response {
+    data?: {
+        translations?: {
+            translatedText?: string;
+        }[];
+    };
+    error?: {
+        message?: string;
+    };
+}
+
+/**
+ * Translate text using Google Cloud Translation API (Basic) v2.
+ * Uses the official endpoint; Cloud Console API keys do not work with translate-pa / gtx.
+ */
+export async function translateWithGoogle(
+    _: IpcMainInvokeEvent,
+    text: string,
+    apiKey: string,
+    sourceLang: string
+): Promise<{ success: boolean; translation?: string; error?: string }> {
+    if (!apiKey) {
+        return { success: false, error: "No Google API key configured" };
+    }
+
+    try {
+        const url = `https://translation.googleapis.com/language/translate/v2?key=${encodeURIComponent(apiKey)}`;
+        const body: Record<string, unknown> = {
+            q: text,
+            target: "en",
+            format: "text",
+        };
+        if (sourceLang && sourceLang !== "auto") {
+            body.source = sourceLang;
+        }
+
+        const res = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+        });
+
+        if (!res.ok) {
+            const errorText = await res.text();
+            console.error("[CCVibe Native] Google Translate API error:", res.status, errorText);
+            return { success: false, error: `API error: ${res.status}` };
+        }
+
+        const data: GoogleTranslateV2Response = await res.json();
+
+        if (data.error?.message) {
+            console.error("[CCVibe Native] Google API error:", data.error.message);
+            return { success: false, error: data.error.message };
+        }
+
+        const translation = data.data?.translations?.[0]?.translatedText?.trim();
+
+        if (!translation) {
+            return { success: false, error: "No translation in response" };
+        }
+
+        return { success: true, translation };
+    } catch (e) {
+        console.error("[CCVibe Native] Google request failed:", e);
         return { success: false, error: String(e) };
     }
 }

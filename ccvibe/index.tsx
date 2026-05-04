@@ -148,12 +148,12 @@ export default definePlugin({
     async start() {
         console.log("[CCVibe] Plugin starting (Hindi/Urdu + Indonesian)...");
 
-        // Check if native module is available for Groq API
+        // Native module runs Groq + Google Cloud Translation in the main process (CSP-safe).
         const nativeAvailable = await requestCspOverride();
         if (nativeAvailable) {
-            console.log("[CCVibe] Plugin started - Groq AI translation enabled via native module!");
+            console.log("[CCVibe] Plugin started - Groq + Google Cloud Translation enabled via native module.");
         } else {
-            console.log("[CCVibe] Plugin started - Using Google Translate (native module not available)");
+            console.log("[CCVibe] Plugin started - Google Cloud Translation from renderer (install native build for Groq + reliable Google).");
         }
     },
 
