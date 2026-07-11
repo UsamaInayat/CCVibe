@@ -1,0 +1,67 @@
+/* CCVibe - Auto-translate Roman Hindi/Urdu to English */
+
+/* Inline translated text */
+.ccvibe-inline {
+    cursor: help;
+    border-bottom: 1px dotted var(--text-muted);
+    transition: all 0.15s ease;
+}
+
+.ccvibe-inline:hover {
+    background-color: var(--background-modifier-hover);
+    border-radius: 3px;
+    padding: 0 2px;
+    margin: 0 -2px;
+}
+
+/* Small indicator showing translation status */
+.ccvibe-indicator {
+    font-size: 0.7em;
+    opacity: 0.5;
+    font-style: italic;
+    margin-left: 4px;
+    color: var(--text-muted);
+}
+
+/* Legacy accessory styles (kept for compatibility) */
+.ccvibe-accessory {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 4px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    background-color: var(--background-secondary);
+    font-size: 0.875rem;
+    color: var(--text-normal);
+}
+
+.ccvibe-icon {
+    color: var(--interactive-normal);
+    flex-shrink: 0;
+}
+
+.ccvibe-text {
+    flex: 1;
+    word-break: break-word;
+}
+
+.ccvibe-original {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+.ccvibe-dismiss {
+    background: none;
+    border: none;
+    color: var(--text-link);
+    cursor: pointer;
+    padding: 0;
+    font-size: 0.75rem;
+    margin-left: 4px;
+}
+
+.ccvibe-dismiss:hover {
+    text-decoration: underline;
+}
