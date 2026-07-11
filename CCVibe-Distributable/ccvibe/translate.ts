@@ -71,7 +71,6 @@ const SLANG_DICTIONARY: Record<string, string> = {
     "bsdk": "motherfucker",
     "madarchod": "motherfucker",
     "mc": "motherfucker",
-    "bc": "sisterfucker",
     "behenchod": "sisterfucker",
     "bhenchod": "sisterfucker",
     "bhen chod": "sisterfucker",
