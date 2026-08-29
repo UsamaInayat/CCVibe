@@ -12,7 +12,9 @@ Supports Google Translate + AI providers (Groq, DeepSeek, OpenRouter, OpenAI, cu
 WHAT YOU RECEIVED
 -----------------
 A folder called "ccvibe" containing the plugin files.
-A file called "API_KEYS_GUIDE.txt" with instructions to get your free API keys.
+Guide.txt            — complete setup + settings reference
+INSTALL.txt          — quick install steps
+API_KEYS_GUIDE.txt   — how to get free API keys
 
 
 STEP 1: Install Prerequisites (One-time, ~5 min)
@@ -134,7 +136,8 @@ Troubleshooting
 ---------------
 
 Q: Translations not showing?
-A: Scroll away and back, or switch channels.
+A: Make sure CCVibe is enabled and you ran pnpm build after adding the plugin.
+   Check Discord console (Ctrl+Shift+I) for [CCVibe] errors.
 
 Q: Plugin not in list?
 A: Make sure ccvibe folder is in src\userplugins\ and you ran pnpm build

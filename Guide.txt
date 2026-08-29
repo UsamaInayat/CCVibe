@@ -1,0 +1,144 @@
+========================================
+          CCVibe - Complete Guide
+========================================
+
+Auto-translates Roman Hindi/Urdu AND Indonesian (Bahasa Indonesia)
+to English directly INSIDE Discord messages — inline replacement.
+Hover over translated text to see the original.
+
+
+WHAT'S IN THE ZIP
+-----------------
+  ccvibe/             Plugin files (copy into Vencord)
+  Guide.txt           This file
+  INSTALL.txt         Quick install steps
+  API_KEYS_GUIDE.txt  How to get free API keys
+
+
+QUICK START (5 MINUTES)
+-----------------------
+1. Install Node.js  -> https://nodejs.org (LTS)
+2. Install Git      -> https://git-scm.com/downloads
+3. Open Command Prompt and run:
+
+     npm install -g pnpm
+     git clone https://github.com/Vendicated/Vencord.git
+     cd Vencord
+     pnpm install
+
+4. Copy the "ccvibe" folder to:
+     Vencord\src\userplugins\ccvibe\
+
+5. Build and inject:
+
+     pnpm build
+     pnpm inject
+
+6. Restart Discord, enable CCVibe in Settings > Vencord > Plugins
+7. Add API keys (see API KEYS section below)
+
+
+INLINE TRANSLATION
+------------------
+CCVibe replaces the message text IN PLACE — not below the message.
+
+  Before:  yaar kya haal hai
+  After:   bro how are you (translated)
+
+Hover to see the original. A brief "(translating…)" shows while loading.
+
+
+API KEYS
+--------
+You need at least ONE key. Both Google + AI is best.
+
+GOOGLE TRANSLATE (fast, literal — free 500k chars/month)
+  1. https://console.cloud.google.com/
+  2. Enable "Cloud Translation API"
+  3. Create API key (starts with AIzaSy...)
+  4. Paste in: CCVibe settings > Google Translate API Key
+
+AI PROVIDER (slang, conversations — pick one)
+  Groq (default, free)     https://console.groq.com/keys          gsk_...
+  DeepSeek                 https://platform.deepseek.com/api_keys  sk-...
+  OpenRouter               https://openrouter.ai/keys              sk-or-...
+  OpenAI                   https://platform.openai.com/api-keys    sk-...
+  Custom                   Any OpenAI-compatible URL + your key
+
+  Paste in: CCVibe settings > AI API Key
+  Select provider in: AI Provider dropdown
+
+
+CCVIBE SETTINGS (gear icon)
+----------------------------
+  Enable automatic translation          ON/OFF master switch
+  Detect Hindi/Urdu                     Toggle Roman Hindi/Urdu detection
+  Detect Indonesian                     Toggle Indonesian detection
+  Show original on hover                Hover to see untranslated text
+  Translation strategy:
+    Fast      — Google first, AI fallback (recommended)
+    Balanced  — Same as Fast
+    Quality   — AI first for slang/conversations
+  AI Provider                           Groq / DeepSeek / OpenRouter / OpenAI / Custom
+  AI API Key                            Your provider key
+  AI Model override                     Leave empty for default, or e.g. deepseek-chat
+  Custom API URL                        Only when provider = Custom
+  Google Translate API Key              Google Cloud key
+
+
+HOW TRANSLATION ROUTING WORKS
+------------------------------
+  Single slang words     ->  Local dictionary (instant, no key)
+  Short phrases          ->  Google Translate
+  Abbreviation-heavy     ->  Word-by-word expansion
+  Conversations / slang  ->  AI provider (Groq, DeepSeek, etc.)
+  Profanity              ->  Google (unfiltered) + dictionary fallback
+
+
+EXAMPLES
+--------
+  Hindi/Urdu:
+    kya kar rha hai bhai?  ->  What are you doing brother?
+    sab theek hai yaar     ->  Everything's fine man
+
+  Indonesian:
+    wkwk gue gak tau bro   ->  haha I don't know bro
+    gimana kabarnya?       ->  How are you doing?
+
+
+UPDATING CCVIBE
+---------------
+1. Replace the ccvibe folder in Vencord\src\userplugins\
+2. Run: pnpm build
+3. Copy dist files to %APPDATA%\Vencord\dist\ (or re-run pnpm inject)
+4. Restart Discord
+
+
+TROUBLESHOOTING
+---------------
+Q: Translations not showing at all?
+A: Make sure CCVibe is enabled. Rebuild Vencord after copying ccvibe/.
+   Check Discord console (Ctrl+Shift+I) for [CCVibe] errors.
+
+Q: Plugin not in the plugins list?
+A: ccvibe must be at Vencord\src\userplugins\ccvibe\ then run pnpm build.
+
+Q: Google Translate 403 error?
+A: Enable Cloud Translation API in Google Cloud Console.
+   Allow "Cloud Translation API" under your key's API restrictions.
+
+Q: AI translation not working?
+A: Check AI API Key is set and AI Provider matches your key.
+   Rebuild Vencord — AI calls need the native module (pnpm build).
+
+Q: English messages getting translated?
+A: Rare — detection needs multiple language-specific word matches.
+   Turn off a language toggle if needed.
+
+Q: "pnpm not found"?
+A: Close and reopen Command Prompt after: npm install -g pnpm
+
+
+========================================
+     Made with <3 for the homies
+========================================
