@@ -5,7 +5,8 @@
 
 import { PluginNative } from "@utils/types";
 
-import { settings } from "./settings";
+import { AiProviderId, resolveAiConfig } from "./aiProviders";
+import { migrateLegacySettings, settings } from "./settings";
 
 export interface TranslationResult {
     original: string;
@@ -207,7 +208,7 @@ let nativeAvailable: boolean | null = null;
 // SENTENCE ANALYSIS - Determines which translator to use
 // =============================================================================
 
-type TranslatorType = "dictionary" | "google" | "groq" | "word-by-word";
+type TranslatorType = "dictionary" | "google" | "ai" | "word-by-word";
 
 interface SentenceAnalysis {
     wordCount: number;
@@ -272,9 +273,9 @@ function analyzeSentence(text: string, language: "hi-ur" | "id" = "hi-ur"): Sent
     else if (wordCount <= 3) {
         recommendedTranslator = "google";
     }
-    // Long conversational/contextual sentence (4+ words) → Groq (context-aware)
+    // Long conversational/contextual sentence (4+ words) → AI (context-aware)
     else if (wordCount >= 4 && (isConversational || isQuestion)) {
-        recommendedTranslator = "groq";
+        recommendedTranslator = "ai";
     }
     // Default → Google
     else {
@@ -303,45 +304,65 @@ async function checkNativeAvailable(): Promise<boolean> {
     if (nativeAvailable !== null) return nativeAvailable;
 
     try {
-        if (Native && typeof Native.translateWithGroq === "function") {
+        if (Native && typeof Native.translateWithAI === "function") {
             nativeAvailable = true;
-            console.log("[CCVibe] Native Groq module available!");
+        } else if (Native && typeof Native.translateWithGroq === "function") {
+            nativeAvailable = true;
         } else {
             nativeAvailable = false;
-            console.log("[CCVibe] Native module not available, Groq disabled");
         }
     } catch {
         nativeAvailable = false;
-        console.log("[CCVibe] Native module check failed, Groq disabled");
     }
 
     return nativeAvailable;
 }
 
+function getAiApiKey(): string {
+    migrateLegacySettings();
+    return settings.store.aiApiKey.trim();
+}
+
+function getAiConfig() {
+    return resolveAiConfig(
+        settings.store.aiProvider as AiProviderId,
+        getAiApiKey(),
+        settings.store.aiModel,
+        settings.store.customApiUrl
+    );
+}
+
 /**
- * Translate using Groq AI via native module
+ * Translate using configured AI provider via native module
  */
-async function groqTranslate(text: string): Promise<string | null> {
-    const apiKey = settings.store.groqApiKey;
-    if (!apiKey) return null;
+async function aiTranslate(text: string): Promise<string | null> {
+    const config = getAiConfig();
+    if (!config) return null;
 
     try {
         const isAvailable = await checkNativeAvailable();
-        if (!isAvailable) return null;
+        if (!isAvailable || !Native) return null;
 
-        const result = await Native.translateWithGroq(text, apiKey);
+        const result = typeof Native.translateWithAI === "function"
+            ? await Native.translateWithAI({
+                text,
+                apiKey: config.apiKey,
+                baseUrl: config.baseUrl,
+                model: config.model
+            })
+            : await Native.translateWithGroq(text, config.apiKey);
 
-        if (result.success && result.translation) {
-            if (isRealTranslation(text, result.translation)) {
-                return result.translation;
-            }
-        } else if (result.error) {
-            console.warn("[CCVibe] Groq error:", result.error);
+        if (result.success && result.translation && isRealTranslation(text, result.translation)) {
+            return result.translation;
+        }
+
+        if (result.error) {
+            console.warn("[CCVibe] AI error:", result.error);
         }
 
         return null;
     } catch (e) {
-        console.error("[CCVibe] Groq translation failed:", e);
+        console.error("[CCVibe] AI translation failed:", e);
         return null;
     }
 }
@@ -499,71 +520,62 @@ async function translateToEnglishInternal(text: string, language: "hi-ur" | "id"
         return result;
     };
 
+    const strategy = settings.store.translationStrategy;
+    const googleFn = language === "id" ? tryIndonesianTranslate : tryGoogleTranslate;
+
+    const tryGoogle = () => googleFn(text);
+    const tryAi = () => aiTranslate(text);
+
+    async function routePrimary(recommended: TranslatorType): Promise<string | null> {
+        switch (recommended) {
+            case "dictionary":
+            case "google":
+                return tryGoogle();
+            case "ai":
+                if (strategy === "quality") {
+                    return (await tryAi()) ?? (await tryGoogle());
+                }
+                return (await tryGoogle()) ?? (await tryAi());
+            case "word-by-word": {
+                const wbw = await translateWordByWord(text);
+                return isRealTranslation(text, wbw) ? wbw : tryGoogle();
+            }
+            default:
+                return null;
+        }
+    }
+
     try {
         const analysis = analyzeSentence(text, language);
 
-        // Check if entire text is in dictionary
         const lowerText = text.toLowerCase().trim();
         if (SLANG_DICTIONARY[lowerText]) {
             return cacheAndReturn(SLANG_DICTIONARY[lowerText], "dictionary");
         }
 
-        let result: string | null = null;
+        let result = await routePrimary(analysis.recommendedTranslator);
 
-        // Pick the correct Google-level function based on source language
-        const googleFn = language === "id" ? tryIndonesianTranslate : tryGoogleTranslate;
-
-        // Route based on analysis
-        switch (analysis.recommendedTranslator) {
-            case "dictionary":
-                result = await googleFn(text);
-                if (result) {
-                    return cacheAndReturn(result, "google");
-                }
-                break;
-
-            case "google":
-                result = await googleFn(text);
-                if (result) {
-                    return cacheAndReturn(result, "google");
-                }
-                if (analysis.hasProfanity) {
-                    const wordByWord = await translateWordByWord(text);
-                    if (isRealTranslation(text, wordByWord)) {
-                        return cacheAndReturn(wordByWord, "word-by-word");
-                    }
-                }
-                break;
-
-            case "groq":
-                // Google first for fast inline display; Groq only when Google fails
-                result = await googleFn(text);
-                if (result) {
-                    return cacheAndReturn(result, "google");
-                }
-                result = await groqTranslate(text);
-                if (result) {
-                    return cacheAndReturn(result, "groq");
-                }
-                break;
-
-            case "word-by-word":
-                const wordByWord = await translateWordByWord(text);
-                if (isRealTranslation(text, wordByWord)) {
-                    return cacheAndReturn(wordByWord, "word-by-word");
-                }
-                result = await googleFn(text);
-                if (result) {
-                    return cacheAndReturn(result, "google");
-                }
-                break;
+        if (result) {
+            const source = analysis.recommendedTranslator === "word-by-word"
+                ? "word-by-word"
+                : analysis.recommendedTranslator === "ai"
+                    ? settings.store.aiProvider
+                    : analysis.recommendedTranslator === "dictionary"
+                        ? "google"
+                        : "google";
+            return cacheAndReturn(result, source);
         }
 
-        // Last resort: Google was already tried in every switch case above.
-        // Try Groq and word-by-word as final fallbacks.
-        result = await groqTranslate(text);
+        if (analysis.hasProfanity) {
+            const wordByWord = await translateWordByWord(text);
+            if (isRealTranslation(text, wordByWord)) {
+                return cacheAndReturn(wordByWord, "word-by-word");
+            }
+        }
+
+        result = (await tryAi()) ?? (await tryGoogle());
         if (result) {
-            return cacheAndReturn(result, "groq");
+            return cacheAndReturn(result, getAiConfig() ? settings.store.aiProvider : "google");
         }
 
         const finalWordByWord = await translateWordByWord(text);
@@ -571,7 +583,6 @@ async function translateToEnglishInternal(text: string, language: "hi-ur" | "id"
             return cacheAndReturn(finalWordByWord, "word-by-word");
         }
 
-        console.log(`[CCVibe] No translation for: "${text}"`);
         return { original: text, translated: text, sourceLanguage: "unchanged" };
 
     } catch (error) {

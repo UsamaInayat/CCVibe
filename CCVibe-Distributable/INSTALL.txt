@@ -6,6 +6,7 @@ Auto-translates Roman Hindi/Urdu AND Indonesian (Bahasa Indonesia)
 messages to English in Discord — inline, with hover to see original.
 
 Smart routing picks the best translator for each sentence!
+Supports Google Translate + AI providers (Groq, DeepSeek, OpenRouter, OpenAI, custom).
 
 
 WHAT YOU RECEIVED
@@ -81,8 +82,9 @@ STEP 6: Set Up API Keys (Required for full translation)
 2. Find "CCVibe" and click the GEAR icon next to it
 3. Enter your API keys (see API_KEYS_GUIDE.txt for how to get them):
    - Google Translate API Key  (free 500k chars/month)
-   - Groq API Key              (free 14,400 requests/day)
-4. You need at least one key. Both is best!
+   - AI API Key                (Groq, DeepSeek, OpenRouter, OpenAI, or custom)
+4. Pick your AI provider and translation strategy in the CCVibe settings.
+5. You need at least one key. Both is best!
 
 
 STEP 7: Choose Your Languages (Optional)
@@ -111,7 +113,7 @@ CCVibe uses smart routing to pick the best translator:
   Profanity/slang    ->  Dictionary + Google (unfiltered)
   Short phrases      ->  Google Translate (literal)
   Abbreviations      ->  Word-by-word expansion
-  Conversations      ->  Groq AI (context-aware)
+  Conversations      ->  AI provider (Groq, DeepSeek, etc.)
 
 Works for both Hindi/Urdu and Indonesian through the same pipeline!
 

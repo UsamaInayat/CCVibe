@@ -14,6 +14,10 @@
     margin: 0 -2px;
 }
 
+.ccvibe-loading {
+    opacity: 0.85;
+}
+
 /* Small indicator showing translation status */
 .ccvibe-indicator {
     font-size: 0.7em;

@@ -3,10 +3,9 @@
 ========================================
 
 CCVibe needs API keys to translate messages.
-You can use one or both - the plugin works with whatever you provide.
+You can use Google, an AI provider, or both for the best experience.
 
-Both Hindi/Urdu AND Indonesian translation use the same API keys.
-No separate keys needed per language!
+Both Hindi/Urdu AND Indonesian use the same keys.
 
 
 OPTION 1: Google Translate API Key (Recommended - Free Tier)
@@ -27,55 +26,83 @@ OPTION 1: Google Translate API Key (Recommended - Free Tier)
    Settings > Vencord > Plugins > CCVibe (gear icon) > Google Translate API Key
 
 Free Tier: 500,000 characters/month at no cost.
-That's roughly ~100,000 messages - more than enough for personal use.
 
 IMPORTANT:
 - If you get 403 errors, check API key restrictions in Google Cloud Console.
-- Under API restrictions, allow "Cloud Translation API" (or temporarily set unrestricted for testing).
+- Under API restrictions, allow "Cloud Translation API".
 - Make sure the key belongs to the same project where Cloud Translation API is enabled.
 
 
-OPTION 2: Groq API Key (Free - AI-Powered Translation)
--------------------------------------------------------
+OPTION 2: AI Provider API Key (Slang & Conversational Text)
+------------------------------------------------------------
 
-1. Go to: https://console.groq.com/
-2. Sign up or sign in (Google/GitHub login works)
-3. Go to: https://console.groq.com/keys
-4. Click "Create API Key"
-5. Give it a name (e.g., "CCVibe")
-6. Copy the key (starts with gsk_...)
-7. Paste it in Discord:
-   Settings > Vencord > Plugins > CCVibe (gear icon) > Groq API Key
+CCVibe supports any OpenAI-compatible API. Pick one provider in settings:
 
-Free Tier: 30 requests/minute, 14,400 requests/day.
-Groq gives better translations for slang and conversational text.
-It handles both Hindi/Urdu AND Indonesian context-aware translation.
+  Groq (default, free tier)
+  - https://console.groq.com/keys
+  - Key starts with gsk_
+  - Default model: llama-3.3-70b-versatile
+
+  DeepSeek
+  - https://platform.deepseek.com/api_keys
+  - Key starts with sk-
+  - Default model: deepseek-chat
+
+  OpenRouter (access many models with one key)
+  - https://openrouter.ai/keys
+  - Key starts with sk-or-
+  - Default model: deepseek/deepseek-chat
+
+  OpenAI
+  - https://platform.openai.com/api-keys
+  - Key starts with sk-
+  - Default model: gpt-4o-mini
+
+  Custom
+  - Any OpenAI-compatible endpoint (local LLM, other hosts)
+  - Set Custom API URL in CCVibe settings
+  - Set your model name in AI Model override
+
+Enter your key in:
+  Settings > Vencord > Plugins > CCVibe > AI API Key
+
+Optional: override the model name in "AI Model override".
 
 
-WHICH ONE SHOULD I USE?
+TRANSLATION STRATEGY
+--------------------
+
+In CCVibe settings, choose how translations are routed:
+
+  Fast        — Google first, AI as fallback (best for speed)
+  Balanced    — Same as Fast (recommended for most users)
+  Quality     — AI first for slang/conversations, Google as fallback
+
+
+WHICH KEYS SHOULD I USE?
 ------------------------
 
-Best experience: Set up BOTH keys.
+Best experience: Set up BOTH Google + an AI key.
 
-CCVibe is smart about which translator to use:
+CCVibe routing:
   - Google Translate  ->  Short phrases, literal translations
-  - Groq AI           ->  Slang, conversations, context-heavy text
-  - Dictionary        ->  Profanity/common words (no key needed)
+  - AI (Groq/DeepSeek/etc) ->  Slang, conversations, context
+  - Dictionary        ->  Common words (no key needed)
   - Word-by-word      ->  Abbreviation-heavy text (no key needed)
 
-If you only want one: Google Translate covers most cases.
+If you only want one: Google covers most cases.
 If you set neither: Dictionary and word-by-word still work for common words.
 
 
-WHERE TO ENTER THE KEYS
-------------------------
+WHERE TO ENTER KEYS
+-------------------
 
 1. Open Discord
 2. Click the gear icon (Settings)
 3. Scroll down to "Vencord" section
 4. Click "Plugins"
 5. Find "CCVibe" and click the gear icon next to it
-6. Enter your API key(s) in the text fields
+6. Enter your API key(s)
 7. Done! No restart needed.
 
 

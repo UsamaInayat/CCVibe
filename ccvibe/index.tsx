@@ -12,7 +12,7 @@ import definePlugin from "@utils/types";
 import { ReactElement } from "react";
 
 import { isLikelyHindiUrdu, isLikelyIndonesian } from "./detector";
-import { settings } from "./settings";
+import { migrateLegacySettings, settings } from "./settings";
 import { TranslatedText } from "./TranslatedText";
 import { requestCspOverride } from "./translate";
 
@@ -25,29 +25,30 @@ export default definePlugin({
             id: 0n
         }
     ],
-    dependencies: ["MessageUpdaterAPI"],
 
     settings,
 
     patches: [
         {
-            // Patch the message content renderer
+            // Patch the message content renderer (same anchor as FakeNitro)
             find: '["strong","em","u","text","inlineCode","s","spoiler"]',
-            replacement: {
-                // Match where content is about to be returned
-                match: /(?=return{hasSpoilerEmbeds:\i,hasBailedAst:\i,content:(\i))/,
-                // Intercept and potentially transform the content
-                replace: (_, content) => `${content}=$self.transformContent(${content});`
-            }
+            replacement: [
+                {
+                    // Discord builds with hasBailedAst (older + current Vencord main)
+                    match: /(?=return{hasSpoilerEmbeds:\i,hasBailedAst:\i,content:(\i))/,
+                    replace: (_, content) => `${content}=$self.transformContent(${content});`
+                },
+                {
+                    // Discord builds without hasBailedAst (newer Discord)
+                    match: /(?=return{hasSpoilerEmbeds:\i,content:(\i)(?!,hasBailedAst))/,
+                    replace: (_, content) => `${content}=$self.transformContent(${content});`
+                }
+            ]
         }
     ],
 
-    // Transform message content if it contains Hindi/Urdu text
     transformContent(content: any[]) {
-        // Skip if disabled
         if (!settings.store.enabled) return content;
-
-        // Skip if not an array
         if (!Array.isArray(content)) return content;
 
         try {
@@ -58,12 +59,10 @@ export default definePlugin({
         }
     },
 
-    // Recursively process content array
     processContent(content: any[]): any[] {
         for (let i = 0; i < content.length; i++) {
             const item = content[i];
 
-            // Handle string content directly
             if (typeof item === "string") {
                 const processed = this.processText(item);
                 if (processed !== item) {
@@ -72,24 +71,10 @@ export default definePlugin({
                 continue;
             }
 
-            // Handle React elements (shallow copy only when mutating)
-            if (item?.props?.children) {
-                if (typeof item.props.children === "string") {
-                    const processed = this.processText(item.props.children);
-                    if (processed !== item.props.children) {
-                        content[i] = {
-                            ...item,
-                            props: { ...item.props, children: processed }
-                        };
-                    }
-                } else if (Array.isArray(item.props.children)) {
-                    const processedChildren = this.processContent(item.props.children);
-                    if (processedChildren !== item.props.children) {
-                        content[i] = {
-                            ...item,
-                            props: { ...item.props, children: processedChildren }
-                        };
-                    }
+            if (item?.props) {
+                const processed = this.processElement(item);
+                if (processed !== item) {
+                    content[i] = processed;
                 }
             }
         }
@@ -97,11 +82,34 @@ export default definePlugin({
         return content;
     },
 
-    // Process a text string - return translated component or original
+    processElement(item: any): any {
+        const children = item.props?.children;
+        if (children == null) return item;
+
+        if (typeof children === "string") {
+            const processed = this.processText(children);
+            if (processed === children) return item;
+            return { ...item, props: { ...item.props, children: processed } };
+        }
+
+        if (Array.isArray(children)) {
+            const processedChildren = this.processContent([...children]);
+            if (processedChildren === children) return item;
+            return { ...item, props: { ...item.props, children: processedChildren } };
+        }
+
+        if (typeof children === "object" && children?.props) {
+            const processedChild = this.processElement(children);
+            if (processedChild === children) return item;
+            return { ...item, props: { ...item.props, children: processedChild } };
+        }
+
+        return item;
+    },
+
     processText(text: string): string | ReactElement {
         if (!text || text.length < 4) return text;
 
-        // Determine which language was detected based on user settings
         let detectedLang: "hi-ur" | "id" | null = null;
         if (settings.store.detectHindiUrdu && isLikelyHindiUrdu(text)) {
             detectedLang = "hi-ur";
@@ -122,14 +130,14 @@ export default definePlugin({
     },
 
     async start() {
+        migrateLegacySettings();
         console.log("[CCVibe] Plugin starting (Hindi/Urdu + Indonesian)...");
 
-        // Native module runs Groq + Google Cloud Translation in the main process (CSP-safe).
         const nativeAvailable = await requestCspOverride();
         if (nativeAvailable) {
-            console.log("[CCVibe] Plugin started - Groq + Google Cloud Translation enabled via native module.");
+            console.log("[CCVibe] Native module ready — AI + Google translation enabled.");
         } else {
-            console.log("[CCVibe] Plugin started - Google Cloud Translation from renderer (install native build for Groq + reliable Google).");
+            console.log("[CCVibe] Native module unavailable — using renderer fallback (rebuild Vencord for full support).");
         }
     },
 

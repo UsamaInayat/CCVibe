@@ -1,45 +1,11 @@
 /*
- * CCVibe - Native module for Groq and Google Cloud Translation API calls
+ * CCVibe - Native module for AI and Google Cloud Translation API calls
  * Runs in Electron's main process - bypasses CSP / CORS restrictions
  */
 
 import { IpcMainInvokeEvent } from "electron";
 
-const GROQ_MODEL = "llama-3.3-70b-versatile";
-
-interface GroqMessage {
-    role: "system" | "user" | "assistant";
-    content: string;
-}
-
-interface GroqResponse {
-    choices?: {
-        message?: {
-            content?: string;
-        };
-    }[];
-    error?: {
-        message?: string;
-    };
-}
-
-/**
- * Translate text using Groq AI (LLM-based translation)
- * Called from renderer process via IPC
- */
-export async function translateWithGroq(
-    _: IpcMainInvokeEvent,
-    text: string,
-    apiKey: string
-): Promise<{ success: boolean; translation?: string; error?: string }> {
-    if (!apiKey) {
-        return { success: false, error: "No Groq API key configured" };
-    }
-
-    const messages: GroqMessage[] = [
-        {
-            role: "system",
-            content: `You are a translator specializing in translating non-English text to English.
+const SYSTEM_PROMPT = `You are a translator specializing in translating non-English text to English.
 
 Supported source languages:
 - Roman Hindi/Urdu: Hindi or Urdu written in Latin/Roman script, common in Pakistani and Indian online chat
@@ -51,23 +17,64 @@ IMPORTANT RULES:
 3. Preserve the tone and meaning
 4. If the text is already English or doesn't need translation, return it as-is
 5. ONLY output the translation, nothing else - no explanations, no quotes
-6. Keep translations concise and natural`
-        },
-        {
-            role: "user",
-            content: text
-        }
+6. Keep translations concise and natural`;
+
+interface ChatMessage {
+    role: "system" | "user" | "assistant";
+    content: string;
+}
+
+interface ChatCompletionResponse {
+    choices?: {
+        message?: {
+            content?: string;
+        };
+    }[];
+    error?: {
+        message?: string;
+    };
+}
+
+export interface AiTranslateConfig {
+    text: string;
+    apiKey: string;
+    baseUrl: string;
+    model: string;
+}
+
+/**
+ * Translate text using any OpenAI-compatible chat completions API.
+ */
+export async function translateWithAI(
+    _: IpcMainInvokeEvent,
+    config: AiTranslateConfig
+): Promise<{ success: boolean; translation?: string; error?: string }> {
+    const { text, apiKey, baseUrl, model } = config;
+
+    if (!apiKey) {
+        return { success: false, error: "No AI API key configured" };
+    }
+    if (!baseUrl) {
+        return { success: false, error: "No AI API URL configured" };
+    }
+    if (!model) {
+        return { success: false, error: "No AI model configured" };
+    }
+
+    const messages: ChatMessage[] = [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: text }
     ];
 
     try {
-        const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        const res = await fetch(baseUrl, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
                 "Authorization": `Bearer ${apiKey}`
             },
             body: JSON.stringify({
-                model: GROQ_MODEL,
+                model,
                 messages,
                 max_tokens: 256,
                 temperature: 0.3
@@ -76,30 +83,41 @@ IMPORTANT RULES:
 
         if (!res.ok) {
             const errorText = await res.text();
-            console.error("[CCVibe Native] Groq API error:", res.status, errorText);
+            console.error("[CCVibe Native] AI API error:", res.status, errorText);
             return { success: false, error: `API error: ${res.status}` };
         }
 
-        const data: GroqResponse = await res.json();
+        const data: ChatCompletionResponse = await res.json();
 
-        if (data.error) {
-            console.error("[CCVibe Native] Groq error:", data.error.message);
+        if (data.error?.message) {
+            console.error("[CCVibe Native] AI error:", data.error.message);
             return { success: false, error: data.error.message };
         }
 
         const translation = data.choices?.[0]?.message?.content?.trim();
-
         if (!translation) {
             return { success: false, error: "No translation in response" };
         }
 
-        console.log(`[CCVibe Native] Translated: "${text}" -> "${translation}"`);
         return { success: true, translation };
-
     } catch (e) {
-        console.error("[CCVibe Native] Request failed:", e);
+        console.error("[CCVibe Native] AI request failed:", e);
         return { success: false, error: String(e) };
     }
+}
+
+/** @deprecated Use translateWithAI — kept for older builds calling this by name */
+export async function translateWithGroq(
+    event: IpcMainInvokeEvent,
+    text: string,
+    apiKey: string
+): Promise<{ success: boolean; translation?: string; error?: string }> {
+    return translateWithAI(event, {
+        text,
+        apiKey,
+        baseUrl: "https://api.groq.com/openai/v1/chat/completions",
+        model: "llama-3.3-70b-versatile"
+    });
 }
 
 interface GoogleTranslateV2Response {
@@ -115,7 +133,6 @@ interface GoogleTranslateV2Response {
 
 /**
  * Translate text using Google Cloud Translation API (Basic) v2.
- * Uses the official endpoint; Cloud Console API keys do not work with translate-pa / gtx.
  */
 export async function translateWithGoogle(
     _: IpcMainInvokeEvent,
@@ -158,7 +175,6 @@ export async function translateWithGoogle(
         }
 
         const translation = data.data?.translations?.[0]?.translatedText?.trim();
-
         if (!translation) {
             return { success: false, error: "No translation in response" };
         }
