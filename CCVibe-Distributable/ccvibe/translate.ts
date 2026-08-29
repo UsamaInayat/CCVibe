@@ -45,8 +45,8 @@ const PROFANITY_KEYWORDS = new Set([
 const ABBREVIATIONS = new Set([
     // Hindi/Urdu abbreviations
     "tm", "ap", "nhi", "ni", "hy", "hen", "kro", "kra",
-    "rha", "rhi", "rhe", "ho", "kr", "sy", "k", "b", "v",
-    "p", "h", "toh", "bhi", "kya", "kyu", "kyun", "aur",
+    "rha", "rhi", "rhe", "kr", "sy",
+    "toh", "bhi", "kya", "kyu", "kyun", "aur",
     // Indonesian abbreviations (genuinely shortened forms only)
     "gw", "lo", "lu", "bgt", "yg", "dgn",
     "krn", "kl", "klo", "tp", "jd", "ntar", "msh", "gmn",
@@ -239,7 +239,9 @@ function analyzeSentence(text: string, language: "hi-ur" | "id" = "hi-ur"): Sent
     // Language-specific question and conversational signals
     const isQuestion = language === "id"
         ? /\?$/.test(text) || /^(apa|siapa|kapan|kenapa|mengapa|bagaimana|gimana|berapa)\b/i.test(lowerText)
-        : /\?$/.test(text) || /^(kya|kyu|kyun|kaisa|kaisi|kaise|kahan|kab|kon|kaun)\b/i.test(lowerText);
+            || /\b(gimana|kenapa|ngapain)\b/i.test(lowerText)
+        : /\?$/.test(text) || /^(kya|kyu|kyun|kaisa|kaisi|kaise|kahan|kab|kon|kaun)\b/i.test(lowerText)
+            || /\b(kaise|kaisa|kaisi|kahan|kab|kya|kyu|kyun)\b/i.test(lowerText);
 
     const conversationalPatterns = language === "id" ? [
         /\b(teman|kawan|sahabat|bro|sis|bang|om|tante|kakak|adik)\b/i,
@@ -247,7 +249,7 @@ function analyzeSentence(text: string, language: "hi-ur" | "id" = "hi-ur"): Sent
         /\b(gimana|gitu|gini|kayak|emang)\b/i,
         /\b(dong|sih|deh|nih|lho)\b/i,
     ] : [
-        /\b(yaar|bhai|dost|bro|sis)\b/i,
+        /\b(yaar|bhai|dost|bro|sis|tum|aap|hum|log)\b/i,
         /\b(acha|theek|okay|ok|haan|han|ji)\b/i,
         /\b(kaise ho|kaisay ho|kya hal|sab theek)\b/i,
         /\b(chal|chalo|dekh|sun|bol)\b/i,
@@ -273,8 +275,8 @@ function analyzeSentence(text: string, language: "hi-ur" | "id" = "hi-ur"): Sent
     else if (wordCount <= 3) {
         recommendedTranslator = "google";
     }
-    // Long conversational/contextual sentence (4+ words) → AI (context-aware)
-    else if (wordCount >= 4 && (isConversational || isQuestion)) {
+    // Conversational / question sentences → AI (full-sentence context)
+    else if (wordCount >= 3 && (isConversational || isQuestion)) {
         recommendedTranslator = "ai";
     }
     // Default → Google
@@ -352,8 +354,8 @@ async function aiTranslate(text: string): Promise<string | null> {
             })
             : await Native.translateWithGroq(text, config.apiKey);
 
-        if (result.success && result.translation && isRealTranslation(text, result.translation)) {
-            return result.translation;
+        if (result.success && result.translation) {
+            return acceptTranslation(text, result.translation);
         }
 
         if (result.error) {
@@ -421,13 +423,43 @@ function isRealTranslation(original: string, translated: string): boolean {
 }
 
 /**
+ * Reject partial translations like "tum log kaise ho" -> "tum log kaise are"
+ * where only one dictionary word changed but the sentence stayed mostly untranslated.
+ */
+export function isAcceptableTranslation(original: string, translated: string): boolean {
+    if (!isRealTranslation(original, translated)) return false;
+
+    const origWords = original.toLowerCase().split(/\s+/).filter(w => w.length > 0);
+    if (origWords.length <= 2) return true;
+
+    const transWords = translated.toLowerCase().split(/\s+/).filter(w => w.length > 0);
+    const transNorms = new Set(transWords.map(w => w.replace(/[^a-z0-9]/g, "")));
+
+    let unchangedCount = 0;
+    for (const word of origWords) {
+        const norm = word.replace(/[^a-z0-9]/g, "");
+        if (norm.length > 1 && transNorms.has(norm)) {
+            unchangedCount++;
+        }
+    }
+
+    const unchangedRatio = unchangedCount / origWords.length;
+    return unchangedRatio <= 0.5;
+}
+
+function acceptTranslation(original: string, translated: string | null): string | null {
+    if (translated && isAcceptableTranslation(original, translated)) return translated;
+    return null;
+}
+
+/**
  * Try Google Translate with an ordered list of source language codes.
  * Returns the first successful, meaningfully different translation.
  */
 async function tryTranslateWithLangs(text: string, langs: string[]): Promise<string | null> {
     for (const lang of langs) {
         const result = await googleTranslate(text, lang);
-        if (result && isRealTranslation(text, result)) return result;
+        if (result) return acceptTranslation(text, result);
     }
     return null;
 }
@@ -436,36 +468,38 @@ const tryGoogleTranslate = (text: string) => tryTranslateWithLangs(text, ["hi", 
 const tryIndonesianTranslate = (text: string) => tryTranslateWithLangs(text, ["id", "auto"]);
 
 /**
- * Translate a single word using cache -> dictionary -> Google
+ * Translate a single word — abbreviations only when expanding shorthand (word-by-word mode)
  */
-async function translateWord(word: string): Promise<string> {
+async function translateWord(word: string, abbreviationsOnly = false): Promise<string> {
     const lowerWord = word.toLowerCase();
 
-    // Check word cache
     if (wordCache.has(lowerWord)) {
         return wordCache.get(lowerWord)!;
     }
 
-    // Check dictionary first for slang
-    if (SLANG_DICTIONARY[lowerWord]) {
+    if (abbreviationsOnly) {
+        if (ABBREVIATIONS.has(lowerWord) && SLANG_DICTIONARY[lowerWord]) {
+            const result = SLANG_DICTIONARY[lowerWord];
+            wordCache.set(lowerWord, result);
+            return result;
+        }
+    } else if (SLANG_DICTIONARY[lowerWord]) {
         const result = SLANG_DICTIONARY[lowerWord];
         wordCache.set(lowerWord, result);
         return result;
     }
 
-    // Try Google for this word
     const googleResult = await tryGoogleTranslate(lowerWord);
     if (googleResult) {
         wordCache.set(lowerWord, googleResult);
         return googleResult;
     }
 
-    // No translation, return original
     return word;
 }
 
 /**
- * Translate word-by-word with dictionary
+ * Expand abbreviation-heavy text word-by-word (never used for normal full sentences)
  */
 async function translateWordByWord(text: string): Promise<string> {
     const words = text.split(/(\s+)/);
@@ -476,8 +510,7 @@ async function translateWordByWord(text: string): Promise<string> {
             translatedParts.push(part);
             continue;
         }
-        const translated = await translateWord(part);
-        translatedParts.push(translated);
+        translatedParts.push(await translateWord(part, true));
     }
 
     return translatedParts.join("");
@@ -494,7 +527,10 @@ async function translateWordByWord(text: string): Promise<string> {
  */
 export async function translateToEnglish(text: string, language: "hi-ur" | "id" = "hi-ur"): Promise<TranslationResult> {
     const cached = translationCache.get(text);
-    if (cached) return cached;
+    if (cached) {
+        if (isAcceptableTranslation(text, cached.translated)) return cached;
+        translationCache.delete(text);
+    }
 
     const inflight = inflightTranslations.get(text);
     if (inflight) return inflight;
@@ -511,6 +547,9 @@ export async function translateToEnglish(text: string, language: "hi-ur" | "id" 
 
 async function translateToEnglishInternal(text: string, language: "hi-ur" | "id" = "hi-ur"): Promise<TranslationResult> {
     const cacheAndReturn = (translated: string, source: string): TranslationResult => {
+        if (!isAcceptableTranslation(text, translated)) {
+            return { original: text, translated: text, sourceLanguage: "unchanged" };
+        }
         const result: TranslationResult = { original: text, translated, sourceLanguage: source };
         if (translationCache.size >= MAX_CACHE_SIZE) {
             const firstKey = translationCache.keys().next().value;
@@ -526,19 +565,23 @@ async function translateToEnglishInternal(text: string, language: "hi-ur" | "id"
     const tryGoogle = () => googleFn(text);
     const tryAi = () => aiTranslate(text);
 
+    async function tryFullSentence(): Promise<string | null> {
+        if (strategy === "quality") {
+            return (await tryAi()) ?? (await tryGoogle());
+        }
+        return (await tryGoogle()) ?? (await tryAi());
+    }
+
     async function routePrimary(recommended: TranslatorType): Promise<string | null> {
         switch (recommended) {
             case "dictionary":
             case "google":
                 return tryGoogle();
             case "ai":
-                if (strategy === "quality") {
-                    return (await tryAi()) ?? (await tryGoogle());
-                }
-                return (await tryGoogle()) ?? (await tryAi());
+                return tryFullSentence();
             case "word-by-word": {
                 const wbw = await translateWordByWord(text);
-                return isRealTranslation(text, wbw) ? wbw : tryGoogle();
+                return acceptTranslation(text, wbw) ?? tryFullSentence();
             }
             default:
                 return null;
@@ -561,26 +604,23 @@ async function translateToEnglishInternal(text: string, language: "hi-ur" | "id"
                 : analysis.recommendedTranslator === "ai"
                     ? settings.store.aiProvider
                     : analysis.recommendedTranslator === "dictionary"
-                        ? "google"
+                        ? "dictionary"
                         : "google";
             return cacheAndReturn(result, source);
         }
 
-        if (analysis.hasProfanity) {
-            const wordByWord = await translateWordByWord(text);
-            if (isRealTranslation(text, wordByWord)) {
-                return cacheAndReturn(wordByWord, "word-by-word");
-            }
-        }
-
-        result = (await tryAi()) ?? (await tryGoogle());
+        result = await tryFullSentence();
         if (result) {
             return cacheAndReturn(result, getAiConfig() ? settings.store.aiProvider : "google");
         }
 
-        const finalWordByWord = await translateWordByWord(text);
-        if (isRealTranslation(text, finalWordByWord)) {
-            return cacheAndReturn(finalWordByWord, "word-by-word");
+        // Word-by-word only for abbreviation-heavy shorthand — never as a lazy fallback
+        if (analysis.abbreviationRatio > 0.4) {
+            const wordByWord = await translateWordByWord(text);
+            const accepted = acceptTranslation(text, wordByWord);
+            if (accepted) {
+                return cacheAndReturn(accepted, "word-by-word");
+            }
         }
 
         return { original: text, translated: text, sourceLanguage: "unchanged" };
@@ -592,7 +632,10 @@ async function translateToEnglishInternal(text: string, language: "hi-ur" | "id"
 }
 
 export function getCachedTranslation(text: string): string | null {
-    return translationCache.get(text)?.translated ?? null;
+    const cached = translationCache.get(text);
+    if (!cached) return null;
+    if (!isAcceptableTranslation(text, cached.translated)) return null;
+    return cached.translated;
 }
 
 // =============================================================================

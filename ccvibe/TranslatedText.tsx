@@ -5,7 +5,7 @@
 
 import { useEffect, useState } from "@webpack/common";
 
-import { getCachedTranslation, translateToEnglish } from "./translate";
+import { getCachedTranslation, isAcceptableTranslation, translateToEnglish } from "./translate";
 
 interface TranslatedTextProps {
     original: string;
@@ -37,7 +37,7 @@ export function TranslatedText({ original, language, showOriginalOnHover }: Tran
             translateToEnglish(original, language).then(result => {
                 if (cancelled) return;
 
-                if (result.translated !== result.original) {
+                if (isAcceptableTranslation(original, result.translated)) {
                     setTranslated(result.translated);
                     setIsLoading(false);
                     return;
