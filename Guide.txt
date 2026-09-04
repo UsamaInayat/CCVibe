@@ -117,7 +117,8 @@ UPDATING CCVIBE
 TROUBLESHOOTING
 ---------------
 Q: Translations not showing at all?
-A: Make sure CCVibe is enabled. Rebuild Vencord after copying ccvibe/.
+A: Make sure CCVibe is enabled. Rebuild Vencord after copying ccvibe/
+   (pnpm build). Enter at least one API key (Google and/or AI).
    Check Discord console (Ctrl+Shift+I) for [CCVibe] errors.
 
 Q: Plugin not in the plugins list?
@@ -128,8 +129,9 @@ A: Enable Cloud Translation API in Google Cloud Console.
    Allow "Cloud Translation API" under your key's API restrictions.
 
 Q: AI translation not working?
-A: Check AI API Key is set and AI Provider matches your key.
-   Rebuild Vencord — AI calls need the native module (pnpm build).
+A: Set AI API Key and pick the matching AI Provider in settings.
+   Run pnpm build in Vencord (native module). Renderer fallback also
+   tries AI if native is unavailable.
 
 Q: English messages getting translated?
 A: Rare — detection needs multiple language-specific word matches.

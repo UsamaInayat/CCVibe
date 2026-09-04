@@ -5,7 +5,7 @@
 
 import { PluginNative } from "@utils/types";
 
-import { AiProviderId, resolveAiConfig } from "./aiProviders";
+import { AiProviderId, AI_SYSTEM_PROMPT, resolveAiConfig } from "./aiProviders";
 import { migrateLegacySettings, settings } from "./settings";
 
 export interface TranslationResult {
@@ -335,7 +335,7 @@ function getAiConfig() {
 }
 
 /**
- * Translate using configured AI provider via native module
+ * Translate using configured AI provider (native module, then renderer fallback)
  */
 async function aiTranslate(text: string): Promise<string | null> {
     const config = getAiConfig();
@@ -343,28 +343,62 @@ async function aiTranslate(text: string): Promise<string | null> {
 
     try {
         const isAvailable = await checkNativeAvailable();
-        if (!isAvailable || !Native) return null;
+        if (isAvailable && Native) {
+            const result = typeof Native.translateWithAI === "function"
+                ? await Native.translateWithAI({
+                    text,
+                    apiKey: config.apiKey,
+                    baseUrl: config.baseUrl,
+                    model: config.model
+                })
+                : await Native.translateWithGroq(text, config.apiKey);
 
-        const result = typeof Native.translateWithAI === "function"
-            ? await Native.translateWithAI({
-                text,
-                apiKey: config.apiKey,
-                baseUrl: config.baseUrl,
-                model: config.model
-            })
-            : await Native.translateWithGroq(text, config.apiKey);
-
-        if (result.success && result.translation) {
-            return acceptTranslation(text, result.translation);
+            if (result.success && result.translation) {
+                const accepted = acceptTranslation(text, result.translation);
+                if (accepted) return accepted;
+            } else if (result.error) {
+                console.warn("[CCVibe] AI error (native):", result.error);
+            }
         }
 
-        if (result.error) {
-            console.warn("[CCVibe] AI error:", result.error);
-        }
-
-        return null;
+        return await aiTranslateRenderer(text, config);
     } catch (e) {
         console.error("[CCVibe] AI translation failed:", e);
+        return null;
+    }
+}
+
+async function aiTranslateRenderer(text: string, config: { baseUrl: string; model: string; apiKey: string }): Promise<string | null> {
+    try {
+        const res = await fetch(config.baseUrl, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${config.apiKey}`
+            },
+            body: JSON.stringify({
+                model: config.model,
+                messages: [
+                    { role: "system", content: AI_SYSTEM_PROMPT },
+                    { role: "user", content: text }
+                ],
+                max_tokens: 256,
+                temperature: 0.3
+            })
+        });
+
+        if (!res.ok) {
+            console.warn("[CCVibe] AI error (renderer):", res.status);
+            return null;
+        }
+
+        const data = await res.json() as {
+            choices?: { message?: { content?: string } }[];
+        };
+        const translation = data.choices?.[0]?.message?.content?.trim();
+        return acceptTranslation(text, translation ?? null);
+    } catch (e) {
+        console.warn("[CCVibe] AI renderer request failed:", e);
         return null;
     }
 }
@@ -377,15 +411,18 @@ async function googleTranslate(text: string, sourceLang: string): Promise<string
     const apiKey = settings.store.googleApiKey;
     if (!apiKey) return null;
 
-    try {
-        if (Native && typeof Native.translateWithGoogle === "function") {
+    if (Native && typeof Native.translateWithGoogle === "function") {
+        try {
             const result = await Native.translateWithGoogle(text, apiKey, sourceLang);
             if (result.success && result.translation) {
                 return result.translation;
             }
-            return null;
+        } catch (e) {
+            console.warn("[CCVibe] Google native failed, trying renderer:", e);
         }
+    }
 
+    try {
         const url = `https://translation.googleapis.com/language/translate/v2?key=${encodeURIComponent(apiKey)}`;
         const body: Record<string, unknown> = {
             q: text,
@@ -407,7 +444,8 @@ async function googleTranslate(text: string, sourceLang: string): Promise<string
             data?: { translations?: { translatedText?: string }[] };
         };
         return data?.data?.translations?.[0]?.translatedText ?? null;
-    } catch {
+    } catch (e) {
+        console.warn("[CCVibe] Google renderer request failed:", e);
         return null;
     }
 }
@@ -643,7 +681,9 @@ export function getCachedTranslation(text: string): string | null {
 // =============================================================================
 
 export async function requestCspOverride(): Promise<boolean> {
-    return await checkNativeAvailable();
+    const available = await checkNativeAvailable();
+    // Google/AI can still work via renderer fallback even without native
+    return available || Boolean(settings.store.googleApiKey || getAiApiKey());
 }
 
 export function clearCache(): void {

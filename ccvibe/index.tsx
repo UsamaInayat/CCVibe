@@ -1,9 +1,6 @@
 /*
  * CCVibe - Auto-translate Roman Hindi/Urdu and Indonesian to English
  * A Vencord plugin for Discord
- *
- * Automatically detects and translates Romanized Hindi/Urdu and Indonesian
- * messages to English with INLINE replacement. Hover to see original.
  */
 
 import "./styles.css";
@@ -11,7 +8,7 @@ import "./styles.css";
 import definePlugin from "@utils/types";
 import { ReactElement } from "react";
 
-import { isLikelyHindiUrdu, isLikelyIndonesian } from "./detector";
+import { detectLanguage, extractPlainText, isPlainTextContent } from "./messageContent";
 import { migrateLegacySettings, settings } from "./settings";
 import { TranslatedText } from "./TranslatedText";
 import { requestCspOverride } from "./translate";
@@ -30,17 +27,18 @@ export default definePlugin({
 
     patches: [
         {
-            // Patch the message content renderer (same anchor as FakeNitro)
             find: '["strong","em","u","text","inlineCode","s","spoiler"]',
             replacement: [
                 {
-                    // Discord builds with hasBailedAst (older + current Vencord main)
-                    match: /(?=return{hasSpoilerEmbeds:\i,hasBailedAst:\i,content:(\i))/,
+                    match: /(?=return\{hasSpoilerEmbeds:\i,hasBailedAst:\i,content:(\i))/,
                     replace: (_, content) => `${content}=$self.transformContent(${content});`
                 },
                 {
-                    // Discord builds without hasBailedAst (newer Discord)
-                    match: /(?=return{hasSpoilerEmbeds:\i,content:(\i)(?!,hasBailedAst))/,
+                    match: /(?=return\{hasSpoilerEmbeds:\i,content:(\i)\})/,
+                    replace: (_, content) => `${content}=$self.transformContent(${content});`
+                },
+                {
+                    match: /(?=return\{content:(\i),hasSpoilerEmbeds:\i\})/,
                     replace: (_, content) => `${content}=$self.transformContent(${content});`
                 }
             ]
@@ -52,6 +50,16 @@ export default definePlugin({
         if (!Array.isArray(content)) return content;
 
         try {
+            const plainText = extractPlainText(content).trim();
+
+            // Plain messages: replace the whole content tree with one inline translator
+            if (plainText.length >= 4 && isPlainTextContent(content)) {
+                const lang = detectLanguage(plainText);
+                if (lang) {
+                    return [this.renderTranslated(plainText, lang)];
+                }
+            }
+
             return this.processContent([...content]);
         } catch (e) {
             console.error("[CCVibe] Error transforming content:", e);
@@ -59,12 +67,26 @@ export default definePlugin({
         }
     },
 
+    renderTranslated(text: string, language: "hi-ur" | "id"): ReactElement {
+        return (
+            <TranslatedText
+                key={`ccvibe-${language}-${text.substring(0, 20)}`}
+                original={text}
+                language={language}
+                showOriginalOnHover={settings.store.showOriginalOnHover}
+            />
+        );
+    },
+
     processContent(content: any[]): any[] {
+        const plainText = extractPlainText(content).trim();
+        const fullLang = plainText.length >= 4 ? detectLanguage(plainText) : null;
+
         for (let i = 0; i < content.length; i++) {
             const item = content[i];
 
             if (typeof item === "string") {
-                const processed = this.processText(item);
+                const processed = this.processText(item, fullLang);
                 if (processed !== item) {
                     content[i] = processed;
                 }
@@ -72,7 +94,7 @@ export default definePlugin({
             }
 
             if (item?.props) {
-                const processed = this.processElement(item);
+                const processed = this.processElement(item, fullLang);
                 if (processed !== item) {
                     content[i] = processed;
                 }
@@ -82,24 +104,24 @@ export default definePlugin({
         return content;
     },
 
-    processElement(item: any): any {
+    processElement(item: any, fullLang: "hi-ur" | "id" | null): any {
         const children = item.props?.children;
         if (children == null) return item;
 
         if (typeof children === "string") {
-            const processed = this.processText(children);
+            const processed = this.processText(children, fullLang);
             if (processed === children) return item;
             return { ...item, props: { ...item.props, children: processed } };
         }
 
         if (Array.isArray(children)) {
-            const processedChildren = this.processContent([...children]);
+            const processedChildren = this.processContent(children);
             if (processedChildren === children) return item;
             return { ...item, props: { ...item.props, children: processedChildren } };
         }
 
         if (typeof children === "object" && children?.props) {
-            const processedChild = this.processElement(children);
+            const processedChild = this.processElement(children, fullLang);
             if (processedChild === children) return item;
             return { ...item, props: { ...item.props, children: processedChild } };
         }
@@ -107,26 +129,19 @@ export default definePlugin({
         return item;
     },
 
-    processText(text: string): string | ReactElement {
-        if (!text || text.length < 4) return text;
+    processText(text: string, fullLang: "hi-ur" | "id" | null = null): string | ReactElement {
+        if (!text?.trim()) return text;
 
-        let detectedLang: "hi-ur" | "id" | null = null;
-        if (settings.store.detectHindiUrdu && isLikelyHindiUrdu(text)) {
-            detectedLang = "hi-ur";
-        } else if (settings.store.detectIndonesian && isLikelyIndonesian(text)) {
-            detectedLang = "id";
+        const lang = fullLang ?? detectLanguage(text);
+        if (!lang) return text;
+
+        // Short fragments are part of a longer detected message — wrap using full context when possible
+        if (text.trim().length < 4 && fullLang) {
+            return text;
         }
+        if (text.trim().length < 4) return text;
 
-        if (!detectedLang) return text;
-
-        return (
-            <TranslatedText
-                key={`ccvibe-${detectedLang}-${text.substring(0, 20)}`}
-                original={text}
-                language={detectedLang}
-                showOriginalOnHover={settings.store.showOriginalOnHover}
-            />
-        );
+        return this.renderTranslated(text, lang);
     },
 
     async start() {
@@ -137,7 +152,7 @@ export default definePlugin({
         if (nativeAvailable) {
             console.log("[CCVibe] Native module ready — AI + Google translation enabled.");
         } else {
-            console.log("[CCVibe] Native module unavailable — using renderer fallback (rebuild Vencord for full support).");
+            console.log("[CCVibe] Native module unavailable — using renderer API fallback.");
         }
     },
 

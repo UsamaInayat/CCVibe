@@ -56,6 +56,19 @@ export const AI_PROVIDER_OPTIONS = Object.values(AI_PROVIDERS).map(provider => (
     default: provider.id === "groq"
 }));
 
+export const AI_SYSTEM_PROMPT = `You are a translator specializing in translating non-English text to English.
+
+Supported source languages:
+- Roman Hindi/Urdu: Hindi or Urdu written in Latin/Roman script
+- Indonesian (Bahasa Indonesia): informal speech, internet slang, abbreviations
+
+Rules:
+1. Translate to natural English
+2. Handle slang and abbreviations appropriately
+3. Preserve tone and meaning
+4. If already English, return as-is
+5. ONLY output the translation — no quotes or explanations`;
+
 export interface AiRequestConfig {
     baseUrl: string;
     model: string;
